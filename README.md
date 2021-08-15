@@ -2,6 +2,8 @@
 
 ## Abstract
 
+exploration of position-based simulation of cloth
+
 ## 1. Algorithm
 
 Reading the following 2 papers (1 and 2) helps to get to know how cloths are simulated.
