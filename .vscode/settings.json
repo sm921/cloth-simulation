@@ -1,0 +1,10 @@
+{
+    "runOnSave.statusMessageTimeout": 1000,
+    "runOnSave.commands": [
+        {
+            "match": ".*\\.ts$",
+            "command": "dir=`echo ${fileDirnameRelative} | sed 's/ts/dist/'` && echo $dir && sed -r 's/import(.*)([^.js])\";/import\\1\\2.js\";/' $dir/${fileBasenameNoExtension}.js > sedtmp && mv sedtmp $dir/${fileBasenameNoExtension}.js",
+            "runIn": "terminal"
+        }
+    ]
+}
