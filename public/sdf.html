@@ -4,26 +4,19 @@
 <head>
     <meta charset="utf-8">
     <title>SDF</title>
-    <style>
-        body {
-            margin: 0;
-        }
-    </style>
 </head>
 
 <body>
     <button id="run">run</button>
+    <button id="save" style="display: none;">save as JSON</button>
     <script src="js/three.min.js"></script>
+    <script src="js/gpu.min.js"></script>
     <script src="/node_modules/three/examples/js/controls/OrbitControls.js"></script>
-    <script src="/node_modules/three/examples/js/controls/TrackballControls.js"></script>
-    <script src="/node_modules/three/examples/js/controls/TransformControls.js"></script>
-    <script src="/node_modules/three/examples/js/helpers/VertexNormalsHelper.js"></script>
     <script src="/node_modules/three/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="/node_modules/three/examples/js/loaders/OBJLoader.js"></script>
-    <script src="/node_modules/three/examples/js/lights/LightProbeGenerator.js"></script>
     <script src="/node_modules/three/examples/js/WebGL.js"></script>
     <script src="/dist/helpers/three-helper.js"></script>
     <script src="/dist/helpers/vector-helper.js"></script>
+    <script src="/dist/helpers/gpu-helper.js"></script>
     <script src="/dist/sdf/face-hander.js"></script>
     <script src="/dist/sdf/sdf.js"></script>
     <script src="/dist/sdf/sdf-render.js"></script>

@@ -11,7 +11,6 @@ namespace CLOTH_RENDER {
   var clothGeometry: THREE.BufferGeometry;
 
   var table;
-  var boundingBox;
   var clothMesh: THREE.Mesh;
 
   var clothMaterial: THREE.MeshPhongMaterial;
@@ -106,7 +105,6 @@ namespace CLOTH_RENDER {
     table.castShadow = true;
     scene.add(table);
     boxGeo.computeBoundingBox();
-    boundingBox = table.geometry.boundingBox?.clone();
     window.addEventListener("resize", onWindowResize, false);
   }
 

@@ -25,8 +25,8 @@ namespace VEC {
     return a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
   }
   export function project(v: Vec3, to: Vec3) {
-    const e = VEC.normalize(to);
-    return VEC.scale(e, VEC.dot(v, e));
+    const e = normalize(to);
+    return scale(e, dot(v, e));
   }
   export function scale(v: Vec3, a: number): Vec3 {
     return [a * v[0], a * v[1], a * v[2]];

@@ -48,19 +48,41 @@ namespace SDF_RENDER {
       gltf.normals,
       gltf.indexBuffer
     );
-    document.body
-      .querySelector("#run")
-      ?.addEventListener("click", (e) =>
-        SDF.createSDF(
-          scene,
-          gltf.boundingBox,
-          gltf.positions,
-          faceNormals,
-          gltf.indexBuffer,
-          5,
-          3
-        )
+    document.body.querySelector("#run")?.addEventListener("click", (e) => {
+      const sdf = SDF.createSDF(
+        gltf.boundingBox,
+        gltf.positions,
+        faceNormals,
+        gltf.indexBuffer,
+        0.1,
+        1
       );
+      const savebtn: HTMLButtonElement | null =
+        document.body.querySelector("#save");
+      if (savebtn) {
+        savebtn.style.display = "block";
+        savebtn.addEventListener("click", () => {
+          const blob = new Blob([sdf.saveAsJSON()], {
+            type: "application/json",
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.download = "sdf.json";
+          a.href = url;
+          a.click();
+          a.remove();
+        });
+      }
+      sdf.forEach((p) => {
+        // const color = THREE_HELPER.sphere(scene, p);
+        const [d, nx, ny, nz] = sdf._sdf(p);
+        THREE_HELPER.line(
+          scene,
+          [...p, ...VEC.add(p, VEC.scale([nx, ny, nz], Math.abs(d)))]
+          // color
+        );
+      });
+    });
     new THREE.GLTFLoader().load("/assets/body2.gltf", (gltf) => {
       scene.add(gltf.scene);
     });

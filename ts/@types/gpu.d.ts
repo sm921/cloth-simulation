@@ -75,6 +75,7 @@ class GPU {
   mode: string;
   canvas: any;
   context: any;
+  static input(value: Float32Array | number[], size: OutputDimensions): Input;
 }
 
 interface ISubKernelObject {
@@ -660,8 +661,6 @@ class Input {
   size: number[];
   constructor(value: number[], size: OutputDimensions);
 }
-
-type input = (value: number[], size: OutputDimensions) => Input;
 
 function alias<T>(name: string, source: T): T;
 
