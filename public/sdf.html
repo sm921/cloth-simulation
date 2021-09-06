@@ -7,8 +7,11 @@
 </head>
 
 <body>
+    grid space (the smaller the more accurate): <input id="grid-space" type="number" value="8" /><br />
+    margin: <input id="margin" type="number" value="1" /><br />
     <button id="run">run</button>
     <button id="save" style="display: none;">save as JSON</button>
+    <input id="load" type="file" />
     <script src="js/three.min.js"></script>
     <script src="js/gpu.min.js"></script>
     <script src="/node_modules/three/examples/js/controls/OrbitControls.js"></script>
@@ -20,6 +23,7 @@
     <script src="/dist/sdf/face-hander.js"></script>
     <script src="/dist/sdf/sdf.js"></script>
     <script src="/dist/sdf/sdf-render.js"></script>
+    <script src="/dist/sdf/sdf-loader.js"></script>
 </body>
 
 </html>

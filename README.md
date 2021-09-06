@@ -60,7 +60,7 @@ Many algorithms are based on papers published in from 2000 to 2008 or so, hence 
   - 1-3-4-1. SDF
 
     - use [NVIDIA's algorithm](https://developer.nvidia.com/gpugems/gpugems3/part-v-physics-simulation/chapter-34-signed-distance-fields-using-single-pass-gpu) to construct SDF. the algorithm may be different from the following methods (slower and thin grid)
-    - or use [this algorithm](https://www.graphicon.ru/html/2003/Proceedings/Technical/paper495.pdf) to construct SDF. the algorithm may be different from the following methods (faster but thin grid)
+    - or use [this algorithm](https://www.graphicon.ru/html/2003/Proceedings/Technical/paper495.pdf) to construct SDF. the algorithm may be different from the following methods (faster but thin grid, so use fast marging method to get dence grid very fast)
     - or use brute force (very slow but dense grid)
 
       - get 3d meshes (triangulate if necessary) and norms

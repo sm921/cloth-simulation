@@ -12,7 +12,7 @@ namespace SDF {
     sdf: Vec4[][][]; // [signed distance_0, normal_0x, normal_0y, normal_0z, ..., signed distance_n, normal_nz, normal_ny, normal_nz]
   }
 
-  interface SDFModel extends SDFData {
+  export interface SDFModel extends SDFData {
     _sdf: (p: Vec3) => Vec4; // [sdf, nomarlx, normaly, normalz]
     forEach: (callback: (gridPoint: Vec3) => void) => void;
     saveAsJSON: () => string;

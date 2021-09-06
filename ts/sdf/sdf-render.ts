@@ -1,10 +1,11 @@
 namespace SDF_RENDER {
   main();
+  let sdf: SDF.SDFModel;
 
   let camera: THREE.PerspectiveCamera;
   /** length is (number of the triangles * 3) ([x0,y0,z0, x1,y1,z1, ..., x0,y0,z0]) */
   let renderer: THREE.WebGLRenderer;
-  let scene: THREE.Scene;
+  export let scene: THREE.Scene;
 
   function animate() {
     requestAnimationFrame(animate);
@@ -14,7 +15,7 @@ namespace SDF_RENDER {
   function initCamera() {
     camera = new THREE.PerspectiveCamera(
       75,
-      window.innerWidth / window.innerHeight,
+      window.innerWidth / (window.innerHeight * 0.91),
       0.1,
       1000
     );
@@ -49,13 +50,17 @@ namespace SDF_RENDER {
       gltf.indexBuffer
     );
     document.body.querySelector("#run")?.addEventListener("click", (e) => {
-      const sdf = SDF.createSDF(
+      sdf = SDF.createSDF(
         gltf.boundingBox,
         gltf.positions,
         faceNormals,
         gltf.indexBuffer,
-        0.1,
-        1
+        Number(
+          (document.getElementById("grid-space") as HTMLInputElement)?.value
+        ) ?? 8,
+        Number(
+          (document.getElementById("margin") as HTMLInputElement)?.value
+        ) ?? 1
       );
       const savebtn: HTMLButtonElement | null =
         document.body.querySelector("#save");
@@ -74,12 +79,12 @@ namespace SDF_RENDER {
         });
       }
       sdf.forEach((p) => {
-        // const color = THREE_HELPER.sphere(scene, p);
+        const color = THREE_HELPER.sphere(scene, p);
         const [d, nx, ny, nz] = sdf._sdf(p);
         THREE_HELPER.line(
           scene,
-          [...p, ...VEC.add(p, VEC.scale([nx, ny, nz], Math.abs(d)))]
-          // color
+          [...p, ...VEC.add(p, VEC.scale([nx, ny, nz], Math.abs(d)))],
+          color
         );
       });
     });
@@ -89,13 +94,12 @@ namespace SDF_RENDER {
   }
   function initRenderer() {
     renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth, window.innerHeight * 0.91);
     document.body.appendChild(renderer.domElement);
   }
   function initScene() {
     scene = new THREE.Scene();
   }
-
   function main() {
     if (THREE.WEBGL.isWebGLAvailable()) {
       initCamera();
