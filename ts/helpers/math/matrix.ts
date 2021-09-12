@@ -424,7 +424,8 @@ namespace MATH_MATRIX {
    */
   export function hessianModification(
     matrix: Matrix,
-    firstNonZeroShift = 1e-3
+    firstNonZeroShift = 1e-3,
+    step = 2
   ): Matrix {
     if (!matrix.isSquare()) return matrix;
 
@@ -439,7 +440,7 @@ namespace MATH_MATRIX {
         for (let i = 0; i < matrix.height; i++) matrix.set(i, i, tau);
       const L = cholesky(matrix);
       if (L !== null) return L;
-      tau = Math.max(2 * tau, firstNonZeroShift);
+      tau = Math.max(step * tau, firstNonZeroShift);
     }
   }
 

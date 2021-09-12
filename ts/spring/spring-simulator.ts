@@ -1,12 +1,11 @@
 namespace SPRING_SIMULALTOR {
   const gravityAccelaration = 9.8;
   const timeStepExplicit = 0.971;
-  const step = 90;
-  const timeStepImplicit = 1 / 30;
+  const timeStepImplicit = 0.32;
 
   export class Simulator {
     springConstant = 1;
-    massOfEndpoint = 1.7;
+    massOfEndpoint = 1;
     origin: Vec3;
     end: Vec3;
     restLength: number;
@@ -84,41 +83,58 @@ namespace SPRING_SIMULALTOR {
      *   update v0 = (x-x_old) / h
      */
     simulateByEnergyMinimization(): void {
-      const tolerance = 0.1;
+      const tolerance = 1e-6;
       const invTimestep = 1 / timeStepImplicit;
-      const xOld: Vec3 = [...this.end];
       const massOverTimestep2 = this.massOfEndpoint * invTimestep * invTimestep;
-      do {
-        const gradE = new MATH_MATRIX.Vector(
-          VEC.subtract(
-            VEC.scale(
-              // this.velocityOfEndPoint,
-              [0, 0, 0], // ignore inertia for dev
-              -this.massOfEndpoint * invTimestep
-            ),
-            this.getGravity(),
-            this.getSpringForce()
-          )
-        ).multiply(-1);
-        const H = new MATH_MATRIX.Matrix(massOverTimestep2, 3, 3).subtract(
-          this.getDerivativeSpringForce()
-        );
-        // solve
-        const L = MATH_MATRIX.hessianModification(H); // make sure that H is positive definite
-        const xMinusX0 = MATH_MATRIX.Solver.cholesky(L, gradE.elements, true);
-        if (xMinusX0 === null) break;
-        // update
-        for (let i = 0; i < 3; i++) this.end[i] += step * xMinusX0[i];
-        // check convergence
-        let norm = 0;
-        for (let i = 0; i < xMinusX0.length; i++)
-          norm += xMinusX0[i] * xMinusX0[i];
-        if (Math.sqrt(norm) < tolerance) break;
-      } while (true);
+      // solve
+      const H = new MATH_MATRIX.Matrix(massOverTimestep2, 3, 3).subtract(
+        this.getDerivativeSpringForce()
+      );
+      const xOld: Vec3 = [...this.end];
+      const L = MATH_MATRIX.hessianModification(H, undefined, 1.001); // make sure that H is positive definite
+      const xMinusX0 = MATH_MATRIX.Solver.cholesky(
+        L,
+        this.getGradientOfEnergy(this.end).multiply(-1).elements,
+        true
+      );
+      if (xMinusX0 === null) return;
+      const norm = VEC.len([xMinusX0[0], xMinusX0[1], xMinusX0[2]]);
+      if (norm < tolerance) return;
+      // choose stepsize
+      const stepsize = LINE_SEARCH.findStepsizeByWolfConditions(
+        (stepsize) =>
+          this.getEnergy(
+            VEC.add(this.end, VEC.scale(xMinusX0 as unknown as Vec3, stepsize))
+          ),
+        (stepsize) =>
+          this.getDirectionalDerivativeOfEnergy(
+            VEC.add(this.end, VEC.scale(xMinusX0 as unknown as Vec3, stepsize)),
+            [xMinusX0[0], xMinusX0[1], xMinusX0[2]]
+          ),
+        1e3,
+        0.1,
+        0.9,
+        10
+      );
+      if (stepsize < 1e-3) return;
+      // update
+      for (let i = 0; i < 3; i++) this.end[i] += stepsize * xMinusX0[i];
       this.velocityOfEndPoint = VEC.scale(
         VEC.subtract(this.end, xOld),
         invTimestep
       );
+      const grad = this.getGradientOfEnergy(this.end);
+      const dir = this.getDirectionalDerivativeOfEnergy(
+        this.end,
+        VEC.scale([xMinusX0[0], xMinusX0[1], xMinusX0[2]], stepsize)
+      );
+      //@ts-ignore
+      document.getElementById("l2")?.innerHTML = `|▽f(xk)'u| = ${Math.abs(
+        dir
+      )}`;
+      const n = grad.norm();
+      //@ts-ignore
+      document.getElementById("l1")?.innerHTML = `▽f(xk): ${n}`;
     }
 
     private addForce(force: Vec3): void {
@@ -130,15 +146,15 @@ namespace SPRING_SIMULALTOR {
     }
 
     private addSpringForce(): void {
-      this.addForce(this.getSpringForce());
+      this.addForce(this.getSpringForce(this.end));
     }
 
     private getGravity(): Vec3 {
       return [0, 0, -this.massOfEndpoint * gravityAccelaration];
     }
 
-    private getSpringForce(): Vec3 {
-      const vectorOriginToEnd = VEC.subtract(this.end, this.origin);
+    private getSpringForce(x: Vec3): Vec3 {
+      const vectorOriginToEnd = VEC.subtract(x, this.origin);
       /* 
       spring force in 3d space is -k( ||v|| - r ) v/||v||
        where 
@@ -179,17 +195,52 @@ namespace SPRING_SIMULALTOR {
         .multiply(this.restLength / x0a_norm)
         .subtract(identity)
         .multiply(-this.springConstant);
-      return dfdxme;
+      return dfdxhe;
+    }
+
+    private getDirectionalDerivativeOfEnergy(x: Vec3, direction: Vec3): number {
+      return VEC.dot(this.getGradientOfEnergy(x).elements as Vec3, direction);
     }
 
     /**
-     * E(x) = 1/(2h^2) * mass * ||x-(x0+hv0)||^2 + PotentialEnergy(x)
+     * E(x) = 1/(2h^2) * mass * ||x-(x0+hv0)||^2 + mass*g*z + 1/2 * k(|x-a|-r)^2
      */
-    private getEnergy(): number {
-      // const kineticEergy = .5/timeStepImplicit/timeStepImplicit*this.massOfEndpoint
-      // gravitational energy
-      // elastic energy
-      return 0;
+    private getEnergy(x: Vec3): number {
+      const kineticEergy =
+        (0.5 / timeStepImplicit / timeStepImplicit) *
+        this.massOfEndpoint *
+        VEC.pow2(
+          VEC.subtract(
+            x,
+            this.end,
+            VEC.scale(this.velocityOfEndPoint, timeStepImplicit)
+          )
+        );
+      const gravityPotential = gravityAccelaration * Math.abs(x[2]);
+      const diff = VEC.len(VEC.subtract(x, this.origin)) - this.restLength;
+      const springPotential = 0.5 * this.springConstant * diff * diff;
+      return kineticEergy + gravityPotential + springPotential;
+    }
+
+    private getGradientOfEnergy(x: Vec3) {
+      return new MATH_MATRIX.Vector(
+        VEC.subtract(
+          VEC.scale(
+            VEC.subtract(
+              x,
+              this.end,
+              VEC.scale(
+                this.velocityOfEndPoint,
+                // [0, 0, 0],
+                timeStepImplicit
+              )
+            ),
+            this.massOfEndpoint / (timeStepImplicit * timeStepImplicit)
+          ),
+          this.getGravity(),
+          this.getSpringForce(x)
+        )
+      );
     }
   }
 }

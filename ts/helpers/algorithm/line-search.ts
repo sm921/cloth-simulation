@@ -7,20 +7,20 @@ namespace LINE_SEARCH {
    * f: Rn -> R
    * df(x + stepsize * search_direction)/dx = scalar
    */
-  type dFdX = (stepsize: number) => number;
+  type DerivativeOfObjectiveFunction = (stepsize: number) => number;
 
   /**
    * objective function of line search
    * f: Rn -> R
    * f(x + stepsize * search_direction) = scalar
    */
-  type F = (stepsize: number) => number;
+  type ObjectiveFunction = (stepsize: number) => number;
 
   /**
    * find optimal stepsize of line search that satisfies strong wolf conditions
    *
    * see https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf Algorithm 3.5 and 3.6 for detail
-   * @param upperbound
+   * @param upperbound of stepsize (treated like infinity). default is a billion
    * @param f objective function of line search
    * ```
    * // e.g. to find stepsize = argmin E(xk + stepsize * u)
@@ -40,35 +40,36 @@ namespace LINE_SEARCH {
    * ```
    * @param c1 parameter of 1st wolf condition that eliminates too large stepsize
    *    and make sure that f decreases well as stepsize gets grater.
-   *    0 < c1 < 0.5 (the larger the grater the effect becomes)
+   *    0 < c1 < 0.5 (the larger the grater the effect becomes).
+   *
+   *    ignore to use default value, 0.1
    * @param c2 parameter of 2nd wolf condition that eliminates too small stepsize
    *    and make sure that derivative converges to 0.
    *    0.5 < c2 < 1 (the smaller the stronger the effect becomes)
+   *
+   *    ignore to use default value, 0.9
    * @returns
    */
   export function findStepsizeByWolfConditions(
-    f: F,
-    dfdx: dFdX,
+    f: ObjectiveFunction,
+    dfdx: DerivativeOfObjectiveFunction,
     upperbound = 1e9,
     c1 = 1e-1,
-    c2 = 0.9
+    c2 = 0.9,
+    initialStepsize?: number
   ): number {
-    let stepsize = interpolateStepsizeQuodratic(0, upperbound, f, dfdx);
-    let previousStepsize = stepsize;
+    let stepsize =
+      initialStepsize ?? interpolateStepsizeQuodratic(0, upperbound, f, dfdx);
+    let previousStepsize = 0;
     let i = 1;
     const f0 = f(0);
     const dfdxAt0 = dfdx(0);
     while (true) {
+      const fAtStepsize = f(stepsize);
       // case 1/3. stepsize is outside of upperbound, hence invalid
       if (
-        !satisfiesWolfCondition1(
-          c1,
-          stepsize,
-          f(stepsize),
-          f0,
-          dfdxAt0,
-          i > 1 ? f(previousStepsize) : undefined
-        )
+        !satisfiesWolfCondition1(c1, stepsize, fAtStepsize, f0, dfdxAt0) ||
+        (i > 1 && fAtStepsize > f(previousStepsize))
       )
         return findStepsizeByWolfConditionsBetween(
           previousStepsize,
@@ -101,6 +102,23 @@ namespace LINE_SEARCH {
     }
   }
 
+  export function findStepsizeByBacktracking(
+    f: ObjectiveFunction,
+    initialStepsize: number,
+    tolerance = 1e-3,
+    step = 0.5
+  ) {
+    let [fCurrent, fPrevious] = [f(initialStepsize), f(0)];
+    // check convergence
+    if (Math.abs(fCurrent - fPrevious) < tolerance) return 0;
+    // line search
+    while (fCurrent >= fPrevious) {
+      initialStepsize *= step;
+      [fCurrent, fPrevious] = [f(initialStepsize), fCurrent];
+    }
+    return initialStepsize;
+  }
+
   /**
    * find an optimal stepsize inside an interval
    * that satisfies wolf conditions
@@ -117,8 +135,8 @@ namespace LINE_SEARCH {
   function findStepsizeByWolfConditionsBetween(
     lowerbound: number,
     upperbound: number,
-    f: F,
-    dfdx: dFdX,
+    f: ObjectiveFunction,
+    dfdx: DerivativeOfObjectiveFunction,
     c1: number,
     c2: number,
     f0: number,
@@ -131,9 +149,17 @@ namespace LINE_SEARCH {
         f,
         dfdx
       );
+      const fAtStepsize = f(stepsize);
+      const diff = fAtStepsize - f(lowerbound);
       // stepsize is outside upperbound, hence invalide
-      if (!satisfiesWolfCondition1(c1, stepsize, f(stepsize), f0, dfdxAt0))
+      if (
+        !satisfiesWolfCondition1(c1, stepsize, fAtStepsize, f0, dfdxAt0) ||
+        diff >= 0
+      ) {
         upperbound = stepsize;
+        // if not satisfies conditions because around minumum f does not decrease, then upperbound converges to lowerbound
+        if (diff < 1e-3) return stepsize;
+      }
       // stepside is inside upperbound, hence valid
       else {
         const dfdxAtStepsize = dfdx(stepsize);
@@ -165,21 +191,36 @@ namespace LINE_SEARCH {
   function interpolateStepsizeQuodratic(
     lowerbound = 0,
     upperbound: number,
-    f: F,
-    dfdx: dFdX
+    f: ObjectiveFunction,
+    dfdx: DerivativeOfObjectiveFunction
   ): number {
     /*
-        see https://www.csie.ntu.edu.tw/~r97002/temp/num_optimization.pdf p.58
-        or search quodratic interpolation of line search for detail
-            quodratic curve = (f(upperbound)-f(lowerbound)-upperbound*dfdx(lowerbound) / upperbound^2)*alpha^2 + dfdx*alpha + f(lowerbound) 
-            hence,
-                argmin_alpha of quodratic curve
-                    = - dfdx(lowerbound) * upperbound^2 / 2 { f(upperbound)-f(lowerbound)-dfdx(lowerbound)*upperbound }
-        */
-    return (
-      (-dfdx(lowerbound) * upperbound * upperbound) /
-      (2 * (f(upperbound) - f(lowerbound) - dfdx(lowerbound) * upperbound))
-    );
+      let curve be y = ax^2 + bx + c
+      y' = 2ax + b
+      then, 
+        f'(p) = 2ap + b
+        f(p) = ap^2 + bp + c
+        f(q) = aq^2 + bq + c
+      which determines a,b, and c
+        solve Au = v
+        where A = [
+          2, 1, 0,
+          p^2 p 1,
+          q^2 q 1
+        ], u = [a,b,c], v=[f'p, fp, fq]
+      then argmin ax^2+bx+c = -b/2a^2
+    */
+    const [p, q] = [lowerbound, upperbound];
+    const [dfdx_p, fp, fq] = [dfdx(p), f(p), f(q)];
+    if (p === 0) return (-dfdx_p * q * q) / (2 * (fq - fp - dfdx_p * q));
+    else {
+      const abc = MATH_MATRIX.Solver.lu(
+        new MATH_MATRIX.Matrix([2, 1, 0, p * p, p, 1, q * q, q, 1], 3, 3),
+        [dfdx_p, fp, fq]
+      ) as Float32Array;
+      const [a, b] = [abc[0], abc[1]];
+      return -b / (2 * a * a);
+    }
   }
 
   /**
@@ -200,13 +241,9 @@ namespace LINE_SEARCH {
     stepsize: number,
     fAtStepsize: number,
     f0: number,
-    dfdxAt0: number,
-    fAtPreviousStepsize?: number
+    dfdxAt0: number
   ): boolean {
-    return (
-      fAtStepsize > f0 + c1 * stepsize * dfdxAt0 ||
-      (fAtPreviousStepsize !== undefined && fAtStepsize >= fAtPreviousStepsize)
-    );
+    return fAtStepsize <= f0 + c1 * stepsize * dfdxAt0;
   }
 
   /**

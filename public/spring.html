@@ -6,14 +6,28 @@
     <title>spring</title>
     <style>
         body {
+            background-color: black;
             color: white;
-            background-color: black
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .ui {
+            position: absolute;
+            background-color: rgba(0, 10, 10, .5);
+            padding: 1%;
         }
     </style>
 </head>
 
 <body>
     <h1>Spring (left: energy minimization, right: explict euler)</h1>
+    <div class="ui">
+        <ul>
+            <li id="l1">gradient = ?</li>
+            <li id="l2">directional derivative = ?</li>
+        </ul>
+    </div>
     <script src="js/three.min.js"></script>
     <script src="/node_modules/three/examples/js/controls/OrbitControls.js"></script>
     <script src="/node_modules/three/examples/js/WebGL.js"></script>
