@@ -108,15 +108,12 @@ namespace LINE_SEARCH {
     tolerance = 1e-3,
     step = 0.5
   ) {
-    let [fCurrent, fPrevious] = [f(initialStepsize), f(0)];
-    // check convergence
-    if (Math.abs(fCurrent - fPrevious) < tolerance) return 0;
-    // line search
-    while (fCurrent >= fPrevious) {
+    const f0 = f(0);
+    while (true) {
+      const fAtStepsize = f(initialStepsize);
+      if (fAtStepsize - f0 < tolerance) return initialStepsize;
       initialStepsize *= step;
-      [fCurrent, fPrevious] = [f(initialStepsize), fCurrent];
     }
-    return initialStepsize;
   }
 
   /**
@@ -143,12 +140,16 @@ namespace LINE_SEARCH {
     dfdxAt0: number
   ): number {
     while (true) {
-      const stepsize = interpolateStepsizeQuodratic(
+      if (lowerbound > upperbound)
+        [lowerbound, upperbound] = [upperbound, lowerbound];
+      let stepsize = interpolateStepsizeQuodratic(
         lowerbound,
         upperbound,
         f,
         dfdx
       );
+      if (stepsize < lowerbound || stepsize > upperbound)
+        stepsize = (lowerbound + upperbound) * 0.5;
       const fAtStepsize = f(stepsize);
       const diff = fAtStepsize - f(lowerbound);
       // stepsize is outside upperbound, hence invalide
@@ -168,10 +169,8 @@ namespace LINE_SEARCH {
           return stepsize;
         // stepsize is outside lowerbound, hence invalid
         else {
-          // if f is not descent, then swap bounds to make it descent
-          if (dfdxAtStepsize * (upperbound - lowerbound) >= 0)
-            upperbound = lowerbound;
-          lowerbound = stepsize;
+          if (dfdxAtStepsize > 0) upperbound = stepsize;
+          else lowerbound = stepsize;
         }
       }
     }

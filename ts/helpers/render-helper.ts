@@ -36,19 +36,19 @@ namespace RENDER_HELPER {
   function initLight() {
     const ambientLight = new THREE.AmbientLight(0x404040);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xc0afff, 0.5);
+    // const directionalLight = new THREE.DirectionalLight(0xc0afff, 0.5);
     // scene.add(directionalLight);
-    const hemisphereLight = new THREE.HemisphereLight(0x445fbb, 0x080820, 1);
+    // const hemisphereLight = new THREE.HemisphereLight(0x445fbb, 0x080820, 1);
     // scene.add(hemisphereLight);
     const pointLight = new THREE.PointLight(0xafcfef, 1, 10000);
-    pointLight.position.set(50, 50, 50);
+    pointLight.position.set(50, -50, 50);
     // scene.add(pointLight);
     const rectLight = new THREE.RectAreaLight(0xffffff, 1, 10, 10);
-    rectLight.position.set(100, 100, 100);
+    rectLight.position.set(100, -100, 100);
     rectLight.lookAt(0, 0, 0);
     // scene.add(rectLight);
     const spotLight = new THREE.SpotLight(0xaf9f8f);
-    spotLight.position.set(100, 100, 100);
+    spotLight.position.set(100, -100, 100);
     spotLight.castShadow = true;
     scene.add(spotLight);
     const spotLight2 = new THREE.SpotLight(0xf0cfaf);

@@ -1,23 +1,17 @@
 namespace SPRING_SIMULALTOR {
   const gravityAccelaration = 9.8;
   const timeStepExplicit = 0.971;
-  const timeStepImplicit = 0.32;
+  const timeStepImplicit = 0.3;
 
   export class Simulator {
     springConstant = 1;
     massOfEndpoint = 1;
-    origin: Vec3;
-    end: Vec3;
     restLength: number;
-    velocityOfEndPoint: Vec3;
-    forceToEndpoint: Vec3;
+    velocityOfEndPoint: Vec3 = [0, 0, 0];
+    forceToEndpoint: Vec3 = [0, 0, 0];
 
-    constructor(origin: Vec3, end: Vec3, restLength?: number) {
-      this.origin = origin;
-      this.end = end;
+    constructor(public origin: Vec3, public end: Vec3, restLength?: number) {
       this.restLength = restLength ?? VEC.len(VEC.subtract(end, origin));
-      this.velocityOfEndPoint = [0, 0, 0];
-      this.forceToEndpoint = [0, 0, 0];
     }
 
     simulateExplictEuler(): void {
@@ -35,7 +29,7 @@ namespace SPRING_SIMULALTOR {
           0.5 * timeStepExplicit * timeStepExplicit
         )
       );
-      newPosition[2] = Math.max(newPosition[2], 0);
+      newPosition[2] = Math.max(newPosition[2], -80);
       this.velocityOfEndPoint = VEC.scale(
         VEC.subtract(newPosition, this.end),
         timeStepExplicit
@@ -91,7 +85,7 @@ namespace SPRING_SIMULALTOR {
         this.getDerivativeSpringForce()
       );
       const xOld: Vec3 = [...this.end];
-      const L = MATH_MATRIX.hessianModification(H, undefined, 1.001); // make sure that H is positive definite
+      const L = MATH_MATRIX.hessianModification(H, undefined, 1.1); // make sure that H is positive definite
       const xMinusX0 = MATH_MATRIX.Solver.cholesky(
         L,
         this.getGradientOfEnergy(this.end).multiply(-1).elements,
@@ -100,7 +94,6 @@ namespace SPRING_SIMULALTOR {
       if (xMinusX0 === null) return;
       const norm = VEC.len([xMinusX0[0], xMinusX0[1], xMinusX0[2]]);
       if (norm < tolerance) return;
-      // choose stepsize
       const stepsize = LINE_SEARCH.findStepsizeByWolfConditions(
         (stepsize) =>
           this.getEnergy(
@@ -116,25 +109,20 @@ namespace SPRING_SIMULALTOR {
         0.9,
         10
       );
-      if (stepsize < 1e-3) return;
+      if (stepsize === 0) return;
       // update
       for (let i = 0; i < 3; i++) this.end[i] += stepsize * xMinusX0[i];
       this.velocityOfEndPoint = VEC.scale(
         VEC.subtract(this.end, xOld),
         invTimestep
       );
-      const grad = this.getGradientOfEnergy(this.end);
-      const dir = this.getDirectionalDerivativeOfEnergy(
+      UI.liElements[0].innerHTML = `▽f(xk)'u = ${this.getDirectionalDerivativeOfEnergy(
         this.end,
         VEC.scale([xMinusX0[0], xMinusX0[1], xMinusX0[2]], stepsize)
-      );
-      //@ts-ignore
-      document.getElementById("l2")?.innerHTML = `|▽f(xk)'u| = ${Math.abs(
-        dir
       )}`;
-      const n = grad.norm();
-      //@ts-ignore
-      document.getElementById("l1")?.innerHTML = `▽f(xk): ${n}`;
+      UI.liElements[1].innerHTML = `|▽f(xk)|: ${Math.abs(
+        this.getGradientOfEnergy(this.end).norm()
+      )}`;
     }
 
     private addForce(force: Vec3): void {
@@ -175,31 +163,27 @@ namespace SPRING_SIMULALTOR {
     /**
      * get derivative of spring force wrt x at x=current position of endpoint
      * -k ( restLength/|x0-a| (I - (x0-a)(x0-a)^t/|x0-a|^2) - I )
-     * ?? -k ( r/|x0-a| ((x0-a)(x0-a)'/|x0-a|^2 - I) + I )
      */
     private getDerivativeSpringForce(): MATH_MATRIX.Matrix {
       const x0a = new MATH_MATRIX.Vector(VEC.subtract(this.end, this.origin));
       const x0a_norm = x0a.norm();
       const identity = MATH_MATRIX.Matrix.identity(3);
-      const dfdxme = x0a
-        .multiply(x0a.transposeNew())
-        .multiply(1 / x0a_norm / x0a_norm)
-        .subtract(identity)
-        .multiply(this.restLength / x0a_norm)
-        .add(identity)
-        .multiply(-this.springConstant);
-      const dfdxhe = x0a
-        .multiply(x0a.transposeNew())
-        .multiply(-1 / x0a_norm / x0a_norm)
+      return (
+        x0a
+          .multiply(x0a.transposeNew())
+          .multiply(-1 / x0a_norm / x0a_norm) as MATH_MATRIX.Matrix
+      )
         .add(identity)
         .multiply(this.restLength / x0a_norm)
         .subtract(identity)
         .multiply(-this.springConstant);
-      return dfdxhe;
     }
 
     private getDirectionalDerivativeOfEnergy(x: Vec3, direction: Vec3): number {
-      return VEC.dot(this.getGradientOfEnergy(x).elements as Vec3, direction);
+      return VEC.dot(
+        this.getGradientOfEnergy(x).elements as unknown as Vec3,
+        direction
+      );
     }
 
     /**
@@ -216,7 +200,7 @@ namespace SPRING_SIMULALTOR {
             VEC.scale(this.velocityOfEndPoint, timeStepImplicit)
           )
         );
-      const gravityPotential = gravityAccelaration * Math.abs(x[2]);
+      const gravityPotential = gravityAccelaration * x[2];
       const diff = VEC.len(VEC.subtract(x, this.origin)) - this.restLength;
       const springPotential = 0.5 * this.springConstant * diff * diff;
       return kineticEergy + gravityPotential + springPotential;
@@ -229,11 +213,7 @@ namespace SPRING_SIMULALTOR {
             VEC.subtract(
               x,
               this.end,
-              VEC.scale(
-                this.velocityOfEndPoint,
-                // [0, 0, 0],
-                timeStepImplicit
-              )
+              VEC.scale(this.velocityOfEndPoint, timeStepImplicit)
             ),
             this.massOfEndpoint / (timeStepImplicit * timeStepImplicit)
           ),

@@ -1,6 +1,6 @@
 namespace MATH_MATRIX {
   export class Matrix {
-    elements: Float32Array | number[];
+    elements: Float32Array;
 
     /**
      * e.g. 2x3 matrix
@@ -288,8 +288,24 @@ namespace MATH_MATRIX {
       return this.elements[index];
     }
 
+    override add(vec: Vector): this {
+      for (let i = 0; i < this.elements.length; i++)
+        this.elements[i] += vec.elements[i];
+      return this;
+    }
+    override addNew(vec: Vector): Vector {
+      return this.clone().add(vec);
+    }
+
     override clone(): Vector {
       return new Vector(new Float32Array(this.elements));
+    }
+
+    dot(vec: Vector): number {
+      let sum = 0;
+      for (let i = 0; i < this.elements.length; i++)
+        sum += this._(i) * vec._(i);
+      return sum;
     }
 
     override multiply(by: Matrix | number): Vector {
@@ -297,6 +313,15 @@ namespace MATH_MATRIX {
     }
     override multiplyNew(by: Matrix | number): Vector {
       return super.multiplyNew(by) as Vector;
+    }
+
+    override subtract(vec: Vector): this {
+      for (let i = 0; i < this.elements.length; i++)
+        this.elements[i] -= vec.elements[i];
+      return this;
+    }
+    override subtractNew(vec: Vector): Vector {
+      return this.clone().subtract(vec);
     }
 
     /**
@@ -411,7 +436,9 @@ namespace MATH_MATRIX {
       }
       let sigma = 0;
       for (let k = 0; k < i; k++) sigma += L._(i, k) * L._(i, k);
-      L.set(i, i, Math.sqrt(matrix._(i, i) - sigma));
+      const diff = matrix._(i, i) - sigma;
+      if (diff <= 0) return null;
+      L.set(i, i, Math.sqrt(diff));
     }
     return L;
   }
@@ -588,6 +615,18 @@ namespace MATH_MATRIX {
     //   expect(Solver.cholesky(A, [17, 31, -5])).toEqual(
     //     new Float32Array([51.5, 4.5, -15])
     //   );
+    // });
+    // test("cholesky decomposition", () => {
+    //   const nonPositiveDefiniteMatrix = new Matrix(
+    //     [
+    //       0.2985329031944275, 0.10807351022958755, 0.10807351022958755,
+    //       0.01267128437757492, 0.2985329031944275, 0.01267128437757492,
+    //       -0.2859558165073395, -0.2859558165073395, 0.2985329031944275,
+    //     ],
+    //     3,
+    //     3
+    //   );
+    //   expect(cholesky(nonPositiveDefiniteMatrix)).toEqual(null);
     // });
   }
 }

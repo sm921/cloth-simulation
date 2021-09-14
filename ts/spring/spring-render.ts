@@ -4,13 +4,13 @@ namespace SPRING_RENDER {
 
   export function render() {
     const implicitSimulator = new SPRING_SIMULALTOR.Simulator(
-      [-10, 0, 50],
-      [0, 0, 50],
+      [-10, 0, 0],
+      [0, 0, 0],
       12
     );
     const explicitSimulator = new SPRING_SIMULALTOR.Simulator(
-      [10, 0, 50],
-      [20, 0, 50],
+      [10, 0, 0],
+      [20, 0, 0],
       12
     );
     RENDER_HELPER.render({
@@ -26,7 +26,7 @@ namespace SPRING_RENDER {
         });
       },
       initModel: () => {
-        RENDER_HELPER.addPlane(1000, 1000);
+        RENDER_HELPER.addPlane(1000, 1000, { position: [0, 0, -80] });
         [explicitSimulator, implicitSimulator].forEach((simulator) => {
           balls.push(RENDER_HELPER.addBall(...simulator.origin));
           balls.push(RENDER_HELPER.addBall(...simulator.end));

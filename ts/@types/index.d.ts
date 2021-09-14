@@ -1,3 +1,5 @@
+/** (x,y) */
+type Vec2 = [number, number];
 /** (x,y,z) */
 type Vec3 = [number, number, number];
 /** (x,y,z,w) */
