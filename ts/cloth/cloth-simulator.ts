@@ -1,9 +1,9 @@
 /// <reference path="../helpers/math/matrix.ts" />
-/// <reference path="../helpers/math/math.ts" />
-/// <reference path="../@types/index.d.ts" />
 /// <reference path="../helpers/algorithm/descent-method.ts" />
+/// <reference path="../@types/index.d.ts" />
+/// <reference path="../helpers/ui.ts" />
 
-namespace STRING_SIMUATOR {
+namespace CLOTH_SIMUATOR {
   const gravityAccelaration = 9.8;
   const timestep = 1 / 10;
   const invTimestep = 1 / timestep;
@@ -105,6 +105,7 @@ namespace STRING_SIMUATOR {
      * @returns
      */
     simulateByEnergyMinimization(): void {
+      UI.print(1);
       const oldPositions = this.positions.map((position) => position.clone());
       DESCENT_METHOD._updateByNewton(
         this.positions,
@@ -161,7 +162,7 @@ namespace STRING_SIMUATOR {
      *  and pi is points connected to qi
      */
     private getEnergy(positions: MATH_MATRIX.Vector[]): number {
-      const kineticEergy = MATH.sigma(0, positions.length, (k) => {
+      const kineticEergy = this.sigma(0, positions.length, (k) => {
         const [x, x0] = [positions[k], this.positions[k]];
         return (
           (0.5 / timestep / timestep) *
@@ -172,12 +173,12 @@ namespace STRING_SIMUATOR {
             .squaredNorm()
         );
       });
-      const gravityEnergy = MATH.sigma(
+      const gravityEnergy = this.sigma(
         0,
         positions.length,
         (k) => gravityAccelaration * (positions[k]._(2) + 1e6)
       );
-      const springEnergy = MATH.sigma(0, this.springs.length, (k) => {
+      const springEnergy = this.sigma(0, this.springs.length, (k) => {
         const spring = this.springs[k];
         const diff =
           positions[spring.position1Index]
@@ -330,6 +331,14 @@ namespace STRING_SIMUATOR {
       return this.positionToSprings[positionIndex].map(
         (springIndex) => this.springs[springIndex]
       );
+    }
+
+    private sigma(from: number, to: number, fn: (k: number) => number): number {
+      let sum = 0;
+      for (let i = from; i < to; i++) {
+        sum += fn(i);
+      }
+      return sum;
     }
   }
 }

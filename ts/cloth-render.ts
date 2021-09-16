@@ -1,4 +1,4 @@
-namespace CLOTH_RENDER {
+namespace CLOTH_RENDER_OLD {
   if (!THREE.WEBGL.isWebGLAvailable())
     document.body.appendChild(THREE.WEBGL.getWebGLErrorMessage());
 

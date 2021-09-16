@@ -1,3 +1,6 @@
+/// <reference path="ui.ts" />
+/// <reference path="../@types/three.d.ts" />
+
 namespace RENDER_HELPER {
   let camera: THREE.PerspectiveCamera;
   /** length is (number of the triangles * 3) ([x0,y0,z0, x1,y1,z1, ..., x0,y0,z0]) */
@@ -96,6 +99,14 @@ namespace RENDER_HELPER {
     const line = new THREE.Line(geometry, material);
     scene.add(line);
     return line;
+  }
+  export function addParametrixSurface(
+    expression: (u: number, v: number, dest: THREE.Vector3) => void
+  ): void {
+    const geometry = new THREE.ParametricGeometry(expression, 250, 25);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const surface = new THREE.Mesh(geometry, material);
+    scene.add(surface);
   }
   function initRenderer() {
     renderer = new THREE.WebGLRenderer();

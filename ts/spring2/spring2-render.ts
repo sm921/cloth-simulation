@@ -1,20 +1,23 @@
+/// <reference path="../@types/index.d.ts" />
 /// <reference path="../helpers/render-helper.ts" />
-/// <reference path="string-simulator.ts" />
+/// <reference path="spring2-simulator.ts" />
 
-namespace STRING_RENDER {
+namespace SPRING2_RENDER {
   let balls: THREE.Mesh[] = [];
   let lines: THREE.Line[] = [];
 
   export function render() {
-    const length = 20;
-    const numberOfPoints = 10;
+    const length = 10;
+    const numberOfPoints = 2;
     const mass = 0.25;
     const restlength = length / numberOfPoints;
     const springConstant = 1;
-    const simulator = new STRING_SIMUATOR.Simulator(
-      range(numberOfPoints, -40, restlength).map((num) => [num, 0, 50]),
+    const simulator = new SPRING2_SIMULALTOR.Simulator(
+      range(numberOfPoints, -40, restlength)
+        .map((num) => [num, 0, 50])
+        .flat(),
+      (positionIndex) => positionIndex === 0,
       range(numberOfPoints - 1, 0, 1).map((num) => [num, num + 1]),
-      (i) => i === 0,
       new Float32Array(arrayOf(mass, numberOfPoints)),
       new Float32Array(arrayOf(restlength, numberOfPoints)),
       new Float32Array(arrayOf(springConstant, numberOfPoints))
@@ -22,12 +25,12 @@ namespace STRING_RENDER {
     RENDER_HELPER.render({
       cameraParams: { position: [0, -100, 2] },
       simulate: () => {
-        simulator.simulateByEnergyMinimization();
+        simulator.simulate();
         simulator.springs.forEach((spring, i) => {
-          const [origin, end] = [
-            spring.position1Index,
-            spring.position2Index,
-          ].map((positionIndex) => simulator.positions[positionIndex].elements);
+          const [origin, end] = [spring.origin, spring.end].map(
+            (endpoint) =>
+              simulator.getPositionOfEndpointOfSpring(endpoint).elements
+          );
           const [ball1, ball2] = [balls[2 * i], balls[2 * i + 1]];
           ball1.position.set(origin[0], origin[1], origin[2]);
           ball2.position.set(end[0], end[1], end[2]);
@@ -40,10 +43,10 @@ namespace STRING_RENDER {
       initModel: () => {
         RENDER_HELPER.addPlane(1000, 1000, { position: [0, 0, -100] });
         simulator.springs.forEach((spring) => {
-          const [origin, end] = [
-            spring.position1Index,
-            spring.position2Index,
-          ].map((positionIndex) => simulator.positions[positionIndex].elements);
+          const [origin, end] = [spring.origin, spring.end].map(
+            (endpoint) =>
+              simulator.getPositionOfEndpointOfSpring(endpoint).elements
+          );
           balls.push(RENDER_HELPER.addBall(origin[0], origin[1], origin[2]));
           balls.push(RENDER_HELPER.addBall(end[0], end[1], end[2]));
           lines.push(

@@ -1,3 +1,6 @@
+/// <reference path="../helpers/render-helper.ts" />
+/// <reference path="free-fall-simulator.ts" />
+
 namespace FREE_FALL_RENDER {
   let balls: THREE.Mesh[] = [];
   export function render() {

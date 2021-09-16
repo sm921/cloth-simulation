@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "outFile": "../dist/sdf.js"
+    },
+    "include": [
+        "../ts/sdf/*.ts"
+    ]
+}

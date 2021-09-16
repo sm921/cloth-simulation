@@ -1,3 +1,10 @@
+/// <reference path="../@types/index.d.ts" />
+/// <reference path="../helpers/vector-helper.ts" />
+/// <reference path="../@types/gpu.d.ts" />
+/// <reference path="../@types/three.d.ts" />
+/// <reference path="../helpers/gpu-helper.ts" />
+/// <reference path="../helpers/three-helper.ts" />
+
 // signed distance fields
 namespace SDF {
   interface SDFData {

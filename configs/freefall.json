@@ -1,0 +1,9 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "outFile": "../dist/freefall.js"
+    },
+    "include": [
+        "../ts/free-fall/*.ts"
+    ]
+}

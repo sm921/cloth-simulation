@@ -1,5 +1,5 @@
 {
   "rootDir": "dist",
-  "testMatch": ["**/math/matrix.js"],
+  "testMatch": ["<rootDir>/test.js"],
   "moduleDirectories": ["node_modules"]
 }

@@ -1,3 +1,9 @@
+/// <reference path="../@types/index.d.ts" />
+/// <reference path="../helpers/vector-helper.ts" />
+/// <reference path="../helpers/math/matrix.ts" />
+/// <reference path="../helpers/ui.ts" />
+/// <reference path="../helpers/algorithm/line-search.ts" />
+
 namespace SPRING_SIMULALTOR {
   const gravityAccelaration = 9.8;
   const timeStepExplicit = 0.971;

@@ -1,3 +1,6 @@
+/// <reference path="../helpers/render-helper.ts" />
+/// <reference path="../@types/index.d.ts" />
+
 namespace PLOT_RENDER {
   export function plot2D(params: {
     fn: (x: number) => number;

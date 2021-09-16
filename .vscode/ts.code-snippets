@@ -1,0 +1,50 @@
+{
+	"reference descent-method": {
+		"prefix": "rdes",
+		"body": [
+			"/// <reference path=\"../helpers/algorithm/descent-method.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+	"reference matrix": {
+		"prefix": "rmat",
+		"body": [
+			"/// <reference path=\"../helpers/math/matrix.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+	"reference render": {
+		"prefix": "rren",
+		"body": [
+			"/// <reference path=\"../helpers/render-helper.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+	"reference ui": {
+		"prefix": "rui",
+		"body": [
+			"/// <reference path=\"../helpers/ui.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+	"reference vec": {
+		"prefix": "rvec",
+		"body": [
+			"/// <reference path=\"../@types/index.d.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+	"reference vector helper": {
+		"prefix": "rvhel",
+		"body": [
+			"/// <reference path=\"../helpers/vector-helper.ts\" />",
+			"$2"
+		],
+		"description": "add reference"
+	},
+}

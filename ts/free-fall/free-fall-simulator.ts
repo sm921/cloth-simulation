@@ -1,3 +1,5 @@
+/// <reference path="../@types/index.d.ts" />
+
 namespace FREE_FALL_SIMULATOR {
   const gravityAccelaration = 9.8;
   const timeStep = 1 / 10;

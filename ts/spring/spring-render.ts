@@ -1,3 +1,6 @@
+/// <reference path="../helpers/render-helper.ts" />
+/// <reference path="spring-simulator.ts" />
+
 namespace SPRING_RENDER {
   let balls: THREE.Mesh[] = [];
   let lines: THREE.Line[] = [];

@@ -1,7 +1,7 @@
 /// <reference path="../helpers/render-helper.ts" />
-/// <reference path="string-simulator.ts" />
+/// <reference path="cloth-simulator.ts" />
 
-namespace STRING_RENDER {
+namespace CLOTH_RENDER {
   let balls: THREE.Mesh[] = [];
   let lines: THREE.Line[] = [];
 
@@ -11,10 +11,25 @@ namespace STRING_RENDER {
     const mass = 0.25;
     const restlength = length / numberOfPoints;
     const springConstant = 1;
-    const simulator = new STRING_SIMUATOR.Simulator(
+    const simulator = new CLOTH_SIMUATOR.Simulator(
       range(numberOfPoints, -40, restlength).map((num) => [num, 0, 50]),
-      range(numberOfPoints - 1, 0, 1).map((num) => [num, num + 1]),
-      (i) => i === 0,
+      [
+        [0, 1],
+        [1, 2],
+        [2, 3],
+        [3, 4],
+        [4, 5],
+        [5, 6],
+        [6, 7],
+        [7, 8],
+        [8, 9],
+        [9, 0],
+        [9, 2],
+        [9, 4],
+        [9, 6],
+        [9, 8],
+      ],
+      (i) => [0, 4, 8].includes(i),
       new Float32Array(arrayOf(mass, numberOfPoints)),
       new Float32Array(arrayOf(restlength, numberOfPoints)),
       new Float32Array(arrayOf(springConstant, numberOfPoints))

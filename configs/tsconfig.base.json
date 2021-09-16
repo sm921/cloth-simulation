@@ -4,7 +4,7 @@
     /* Basic Options */
     "incremental": true, /* Enable incremental compilation */
     "target": "es5", /* Specify ECMAScript target version: 'ES3' (default), 'ES5', 'ES2015', 'ES2016', 'ES2017', 'ES2018', 'ES2019', 'ES2020', 'ES2021', or 'ESNEXT'. */
-    "module": "ESNext", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */
+    "module": "none", /* Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2015', 'es2020', or 'ESNext'. */
     "lib": [
       "dom",
       "ESNext"
@@ -16,10 +16,10 @@
     // "declarationMap": true,                      /* Generates a sourcemap for each corresponding '.d.ts' file. */
     "sourceMap": true, /* Generates corresponding '.map' file. */
     // "outFile": "./",                             /* Concatenate and emit output to single file. */
-    "outDir": "./dist", /* Redirect output structure to the directory. */
-    "rootDir": "./ts", /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
+    "outDir": "../dist", /* Redirect output structure to the directory. */
+    "rootDir": "../ts", /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
     // "composite": true,                           /* Enable project compilation */
-    // "tsBuildInfoFile": "./",                     /* Specify file to store incremental compilation information */
+    // "tsBuildInfoFile": "./",                     /* Specify file to store incremental compilation infortmation */
     "removeComments": true, /* Do not emit comments to output. */
     // "noEmit": true,                              /* Do not emit outputs. */
     // "importHelpers": true,                       /* Import emit helpers from 'tslib'. */
@@ -64,5 +64,11 @@
     /* Advanced Options */
     "skipLibCheck": true, /* Skip type checking of declaration files. */
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
-  }
+  },
+  "include": [
+    "../ts/**/*.ts"
+  ],
+  "exclude": [
+    "../ts/**/*.test.ts"
+  ]
 }

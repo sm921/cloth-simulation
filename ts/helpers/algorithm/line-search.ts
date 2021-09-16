@@ -64,6 +64,7 @@ namespace LINE_SEARCH {
     let i = 1;
     const f0 = f(0);
     const dfdxAt0 = dfdx(0);
+    if (dfdxAt0 === 0) return 0;
     while (true) {
       const fAtStepsize = f(stepsize);
       // case 1/3. stepsize is outside of upperbound, hence invalid
@@ -158,8 +159,8 @@ namespace LINE_SEARCH {
         diff >= 0
       ) {
         upperbound = stepsize;
-        // if not satisfies conditions because around minumum f does not decrease, then upperbound converges to lowerbound
-        if (diff < 1e-3) return stepsize;
+        // return if it converges
+        if (diff < 1e-6) return stepsize;
       }
       // stepside is inside upperbound, hence valid
       else {

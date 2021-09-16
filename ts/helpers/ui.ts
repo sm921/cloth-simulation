@@ -17,4 +17,11 @@ namespace UI {
     app?.append(header);
     app?.append(ul);
   }
+
+  export function print(text: string | number): void {
+    printTo(0, text);
+  }
+  export function printTo(index: number, text: string | number): void {
+    liElements[index].innerHTML = String(text);
+  }
 }
