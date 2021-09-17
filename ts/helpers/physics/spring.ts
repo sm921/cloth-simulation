@@ -34,13 +34,13 @@ namespace PHYSICS_SPRING {
     springConstant: number
   ): MATH_MATRIX.Vector {
     const vectorFromP2ToP1 = point1.subtractNew(point2);
-    return vectorFromP2ToP1.multiply(
+    return vectorFromP2ToP1.multiplyScalar(
       springConstant * (1 - restlength / vectorFromP2ToP1.norm())
     );
   }
 
   /**
-   * k ( I - r/|qi-pi| ( I - (qi-pi)(qi-pi)^t / |qi-pi|^2 ) )
+   * -k ( I - r/|qi-pi| ( I - (qi-pi)(qi-pi)^t / |qi-pi|^2 ) )
    * @param point1
    * @param point2
    * @param restlength
@@ -61,11 +61,11 @@ namespace PHYSICS_SPRING {
         identity
           .subtractNew(
             vectorFromP2ToP1
-              .multiply(vectorFromP2ToP1.transposeNew())
+              .multiplyVector(vectorFromP2ToP1.transposeNew())
               .multiply(1 / squaredNorm)
           )
           .multiply(restlength / Math.sqrt(squaredNorm))
       )
-      .multiply(springConstant);
+      .multiply(-springConstant);
   }
 }

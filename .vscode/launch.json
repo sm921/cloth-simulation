@@ -12,6 +12,12 @@
             "outFiles": [
                 "${workspaceRoot}/dist/**/*"
             ]
+        },
+        {
+            "type": "pwa-chrome",
+            "name": "browser",
+            "request": "launch",
+            "url": "http://localhost:5500/public/${relativeFileDirname}.html"
         }
     ]
 }

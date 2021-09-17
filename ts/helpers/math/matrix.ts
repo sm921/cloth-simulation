@@ -94,7 +94,7 @@ namespace MATH_MATRIX {
             columnIndex < product.width;
             columnIndex++
           ) {
-            for (let k = 0; k < product.height; k++)
+            for (let k = 0; k < this.width; k++)
               product.elements[
                 product.getFlatArrayIndex(rowIndex, columnIndex)
               ] += this._(rowIndex, k) * by._(k, columnIndex);
@@ -308,9 +308,49 @@ namespace MATH_MATRIX {
       return sum;
     }
 
+    multiplyScalar(scalar: number): this {
+      for (let i = 0; i < this.elements.length; i++) this.elements[i] *= scalar;
+      return this;
+    }
+    multiplyScalarNew(scalar: number): Vector {
+      const product = this.clone();
+      for (let i = 0; i < this.elements.length; i++)
+        product.elements[i] *= scalar;
+      return product;
+    }
+    /** column vec x row vec */
+    multiplyVector(vec: Vector): Matrix {
+      const product = Matrix.zero(this.height, vec.width);
+      for (let row = 0; row < product.width; row++)
+        for (let column = 0; column < product.width; column++)
+          product.set(row, column, this._(row) * vec._(column));
+      return product;
+    }
+    multiplyElementwise(vec: Vector): this {
+      for (let i = 0; i < this.elements.length; i++)
+        this.set(i, this._(i) * vec._(i));
+      return this;
+    }
+    multiplyElementwiseNew(vec: Vector): Vector {
+      return this.clone().multiplyElementwise(vec);
+    }
+    /** return Ax */
+    multiplyMatrix(matrix: Matrix): Vector {
+      const product = Vector.zero(this.height);
+      for (let row = 0; row < this.height; row++)
+        for (let column = 0; column < matrix.width; column++)
+          product.elements[row] += matrix._(row, column) * this._(column);
+      return product;
+    }
+    /**
+     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
+     */
     override multiply(by: Matrix | number): Vector {
       return super.multiply(by) as Vector;
     }
+    /**
+     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
+     */
     override multiplyNew(by: Matrix | number): Vector {
       return super.multiplyNew(by) as Vector;
     }

@@ -1,10 +1,13 @@
 /// <reference path="../helpers/math/matrix.ts" />
 /// <reference path="../helpers/math/math.ts" />
 /// <reference path="../helpers/algorithm/descent-method.ts" />
+/// <reference path="../@types/index.d.ts" />
+/// <reference path="../helpers/physics/spring.ts" />
+/// <reference path="../helpers/physics/kinetic.ts" />
 
 namespace SPRING2_SIMULALTOR {
   const gravityAccelaration = 9.8;
-  const timestep = 0.03;
+  const timestep = 0.1;
 
   type EndpointOfSpring = {
     /** index for positions array */
@@ -19,11 +22,15 @@ namespace SPRING2_SIMULALTOR {
     springConstant: number;
   };
 
+  /**
+   * the most accurate simulation of springs in this project
+   */
   export class Simulator {
     dynamicPositions: MATH_MATRIX.Vector;
     fixedPositions: MATH_MATRIX.Vector;
     /** masses of dynamic positions */
     masses: number[] = [];
+    mass3: MATH_MATRIX.Vector;
     springs: Spring[] = [];
     /** map dynamic position index to array of strings connected to that position */
     springsConnectedTo: number[][];
@@ -36,14 +43,17 @@ namespace SPRING2_SIMULALTOR {
       springIndices: Vec2[],
       masses: Float32Array,
       restLengths?: Float32Array,
-      springConstants?: Float32Array
+      springConstants?: Float32Array,
+      /** from 0 to 1, the grater the heavier the mover becomes */
+      public airResistance = 1
     ) {
       const [dynamicPositions, fixedPositions]: [number[], number[]] = [[], []];
       let [dynamicPositionIndex, fixedPositionIndex] = [0, 0];
-      const [dynamicPositionIndices, fixedPositionIndices]: [
+      const [dynamicPositionIndices, fixedPositionIndices, mass3]: [
+        number[],
         number[],
         number[]
-      ] = [[], []];
+      ] = [[], [], []];
       for (
         let positionIndex = 0;
         positionIndex < positions.length / 3;
@@ -59,8 +69,13 @@ namespace SPRING2_SIMULALTOR {
           isFixedPosition ? -1 : dynamicPositionIndex++
         );
         fixedPositionIndices.push(isFixedPosition ? fixedPositionIndex++ : -1);
-        if (!isFixedPosition) this.masses.push(masses[positionIndex]);
+        if (!isFixedPosition) {
+          const mass = masses[positionIndex];
+          this.masses.push(mass);
+          mass3.push(mass, mass, mass);
+        }
       }
+      this.mass3 = new MATH_MATRIX.Vector(mass3);
       this.dynamicPositions = new MATH_MATRIX.Vector(dynamicPositions);
       this.fixedPositions = new MATH_MATRIX.Vector(fixedPositions);
       this.velocities = MATH_MATRIX.Vector.zero(dynamicPositions.length);
@@ -110,10 +125,11 @@ namespace SPRING2_SIMULALTOR {
         this.energy.bind(this),
         this.gradient.bind(this),
         this.hessian.bind(this),
-        this.triesOrthogonalDirections
+        true
       );
-      this.updateVelocities(previousPositions);
-      // this.avoidSaddlePoint(previousPositions);
+      this.velocities = this.dynamicPositions
+        .subtractNew(previousPositions)
+        .multiplyScalar((1 / timestep) * (1 - this.airResistance));
     }
 
     getPositionOfEndpointOfSpring(
@@ -125,41 +141,13 @@ namespace SPRING2_SIMULALTOR {
       ).bind(this)(endpoint.index, of);
     }
 
-    /** saddle point guard. replace zero elements of gradient when positions converges */
-    triesOrthogonalDirections = 0;
-    triedOrthogonalDirections = false;
-    private avoidSaddlePoint(previousPositions: MATH_MATRIX.Vector): void {
-      if (
-        this.dynamicPositions.subtractNew(previousPositions).squaredNorm() <
-        1e-6
-      ) {
-        if (!this.triesOrthogonalDirections) {
-          this.triesOrthogonalDirections = 1;
-          this.triedOrthogonalDirections = true;
-        } else {
-          // this.triesOrthogonalDirections = 0;
-        }
-      }
-    }
-
     private energy(positions: MATH_MATRIX.Vector): number {
-      const kineticEergy = MATH.sigma(
-        0,
-        positions.height / 3,
-        (positionIndex) => {
-          const [newPosition, currentPosition] = [
-            this.getDynamicPosition(positionIndex, positions),
-            this.getDynamicPosition(positionIndex),
-          ];
-          return (
-            (0.5 / timestep / timestep) *
-            this.masses[positionIndex] *
-            newPosition
-              .subtractNew(currentPosition)
-              .subtract(this.getVelocity(positionIndex).multiplyNew(timestep))
-              .squaredNorm()
-          );
-        }
+      const kineticEergy = PHYSICS_KINETIC.energyGain(
+        positions,
+        this.dynamicPositions,
+        this.velocities,
+        timestep,
+        this.mass3
       );
       const gravityEnergy = MATH.sigma(
         0,
@@ -169,13 +157,12 @@ namespace SPRING2_SIMULALTOR {
       );
       const springEnergy = MATH.sigma(0, this.springs.length, (springIndex) => {
         const spring = this.springs[springIndex];
-        const diff =
-          this.getPositionOfEndpointOfSpring(spring.origin, positions)
-            .subtractNew(
-              this.getPositionOfEndpointOfSpring(spring.end, positions)
-            )
-            .norm() - spring.restlength;
-        return 0.5 * spring.springConstant * diff * diff;
+        return PHYSICS_SPRING.energy(
+          this.getPositionOfEndpointOfSpring(spring.origin, positions),
+          this.getPositionOfEndpointOfSpring(spring.end, positions),
+          spring.restlength,
+          spring.springConstant
+        );
       });
       return kineticEergy + gravityEnergy + springEnergy;
     }
@@ -221,29 +208,21 @@ namespace SPRING2_SIMULALTOR {
       );
     }
 
-    private getVelocity(index: number): MATH_MATRIX.Vector {
-      return new MATH_MATRIX.Vector([
-        this.velocities._(index * 3),
-        this.velocities._(index * 3 + 1),
-        this.velocities._(index * 3 + 2),
-      ]);
-    }
-
     private gradient(positions: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
       const gradient = MATH_MATRIX.Vector.zero(this.dynamicPositions.height);
+      const kineticGradient = PHYSICS_KINETIC.gradientEnergyGain(
+        positions,
+        this.dynamicPositions,
+        this.velocities,
+        timestep,
+        this.mass3
+      );
       for (
         let positionIndex = 0;
         positionIndex < positions.height / 3;
         positionIndex++
       ) {
-        const [position, oldPosition] = [
-          this.getDynamicPosition(positionIndex, positions),
-          this.getDynamicPosition(positionIndex),
-        ];
-        const kineticGradient = position
-          .subtractNew(oldPosition)
-          .subtractNew(this.getVelocity(positionIndex).multiplyNew(timestep))
-          .multiplyNew(this.masses[positionIndex] / timestep / timestep);
+        const position = this.getDynamicPosition(positionIndex, positions);
         const gravitationalGradient = new MATH_MATRIX.Vector([
           0,
           0,
@@ -255,29 +234,30 @@ namespace SPRING2_SIMULALTOR {
             positionIndex,
             spring
           );
-          const qi_pk = position.subtractNew(
-            this.getPositionOfEndpointOfSpring(
-              connectedEndpoint,
-              connectedEndpoint.isFixed ? this.fixedPositions : positions
+          springGradient.add(
+            PHYSICS_SPRING.energyGradient(
+              position,
+              this.getPositionOfEndpointOfSpring(
+                connectedEndpoint,
+                connectedEndpoint.isFixed ? this.fixedPositions : positions
+              ),
+              spring.restlength,
+              spring.springConstant
             )
           );
-          const norm = qi_pk.norm();
-          const gradSpringEnergy_wrt_qipk = qi_pk.multiplyNew(
-            spring.springConstant * (1 - spring.restlength / norm)
-          );
-          springGradient.add(gradSpringEnergy_wrt_qipk);
         }
-        const totalGradient = kineticGradient
-          .add(gravitationalGradient)
-          .add(springGradient);
+        const totalGradient = gravitationalGradient.add(springGradient);
         for (let xyz = 0; xyz < 3; xyz++)
           gradient.set(positionIndex * 3 + xyz, totalGradient._(xyz));
       }
-      return gradient;
+      return gradient.add(kineticGradient);
     }
 
     private hessian(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {
-      const kineticHessian = this.hessianKinetic(positions);
+      const kineticHessian = PHYSICS_KINETIC.hessianEnergyGain(
+        timestep,
+        this.mass3
+      );
       const springHessian = this.getHessianOfSpringEnergy(positions);
       return kineticHessian.add(springHessian);
     }
@@ -307,21 +287,12 @@ namespace SPRING2_SIMULALTOR {
               connectedEndpoint.isFixed ? this.fixedPositions : positions
             ),
           ];
-          const vecFromPointToConnectedPoint =
-            point.subtractNew(connectedPoint);
-          const norm = vecFromPointToConnectedPoint.norm();
-          const identity = MATH_MATRIX.Matrix.identity(3);
-          const hessian_ij = identity
-            .subtract(
-              identity
-                .subtractNew(
-                  vecFromPointToConnectedPoint
-                    .multiply(vecFromPointToConnectedPoint.transposeNew())
-                    .multiply(1 / norm / norm)
-                )
-                .multiply(spring.restlength / norm)
-            )
-            .multiply(spring.springConstant);
+          const hessian_ij = PHYSICS_SPRING.energyHessian(
+            point,
+            connectedPoint,
+            spring.restlength,
+            spring.springConstant
+          );
           for (let row = 0; row < 3; row++)
             for (let column = 0; column < 3; column++) {
               const [rowI, columnJ] = [
@@ -343,37 +314,6 @@ namespace SPRING2_SIMULALTOR {
         }
       }
       return hessian;
-    }
-
-    private hessianKinetic(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {
-      const hessian = MATH_MATRIX.Matrix.zero(
-        positions.height,
-        positions.height
-      );
-      for (let i = 0; i < hessian.height; i++)
-        for (let j = 0; j < 3; j++)
-          hessian.set(
-            3 * i + j,
-            3 * i + j,
-            this.masses[i] / (timestep * timestep)
-          );
-      return hessian;
-    }
-
-    private updateVelocities(previousPositions: MATH_MATRIX.Vector): void {
-      for (
-        let positionIndex = 0;
-        positionIndex < this.dynamicPositions.height / 3;
-        positionIndex++
-      ) {
-        const velocity = this.getDynamicPosition(positionIndex)
-          .subtractNew(
-            this.getDynamicPosition(positionIndex, previousPositions)
-          )
-          .multiply(1 / timestep);
-        for (let xyz = 0; xyz < 3; xyz++)
-          this.velocities.set(positionIndex * 3 + xyz, velocity._(xyz));
-      }
     }
   }
 }

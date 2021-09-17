@@ -11,11 +11,12 @@
 namespace DESCENT_METHOD {
   /**
    * update x by x + stepsize * H^-1 (- grad f)
-   *
+   *  so that x converges to local minimum of fx
    * @param x
    * @param fx
    * @param gradFx
    * @param hessianOfFx
+   * @param simulatesInertia x osciliates around local minumum until convergence as if it has inertia
    * @param triesOrthogonalDirections saddle point guard (set non-zero value ONLY IF x converges to saddle point)
    * @returns
    */
@@ -24,12 +25,13 @@ namespace DESCENT_METHOD {
     fx: (x: MATH_MATRIX.Vector) => number,
     gradFx: (x: MATH_MATRIX.Vector) => MATH_MATRIX.Vector,
     hessianOfFx: (x: MATH_MATRIX.Vector) => MATH_MATRIX.Matrix,
+    simulatesInertia = false,
     triesOrthogonalDirections = 0
   ): void {
     const _H = hessianOfFx(x);
     const H = MATH_MATRIX.hessianModification(_H);
     let grad = gradFx(x)
-      .multiply(-1)
+      .multiplyScalar(-1)
       /* ############ Saddle Point Guard ##########
        * since if elements are zero, then H^'1 grad may have zero element (in cases like H is diagonal)
        * which makes update direction orthogonal to some descent directions corresponding to zero element.
@@ -43,15 +45,18 @@ namespace DESCENT_METHOD {
     if (_pk === null) return;
     const pk = new MATH_MATRIX.Vector(_pk);
     if (pk.norm() === 0) return;
-    const stepsize = LINE_SEARCH.findStepsizeByWolfConditions(
-      (stepsize) => fx(x.addNew(pk.multiplyNew(stepsize))),
-      (stepsize) => gradFx(x.addNew(pk.multiplyNew(stepsize))).dot(pk),
-      1e3,
-      undefined,
-      undefined,
-      1
-    );
-    x.add(pk.multiply(stepsize));
+    const stepsize = simulatesInertia
+      ? 1
+      : LINE_SEARCH.findStepsizeByWolfConditions(
+          (stepsize) => fx(x.addNew(pk.multiplyScalarNew(stepsize))),
+          (stepsize) =>
+            gradFx(x.addNew(pk.multiplyScalarNew(stepsize))).dot(pk),
+          1e3,
+          undefined,
+          undefined,
+          1
+        );
+    x.add(pk.multiplyScalar(stepsize));
   }
 
   /**

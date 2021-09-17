@@ -14,8 +14,10 @@ namespace RENDER_HELPER {
     drawFrame();
   }
 
-  export function clear() {
-    renderer.clear();
+  export function clear<T extends THREE.Object3D>(meshes: T[]) {
+    meshes.forEach((mesh) => mesh.clear());
+    scene.remove(...meshes);
+    meshes.length = 0; // make meshes empty
   }
 
   function initCamera(params: { position?: Vec3; lookAt?: Vec3 } = {}) {

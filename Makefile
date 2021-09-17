@@ -5,16 +5,6 @@ clean:
 	rm -r dist
 
 ############## dev ##########
-dev:
-	make cloth \
-	& make freefall \
-	& make min \
-	& make plot \
-	& make sdf \
-	& make spring \
-	& make spring2 \
-	& make string \
-	& make testbuild
 build:
 	npx tsc -w -p configs/$(n).json
 cloth:
