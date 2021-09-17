@@ -1,232 +1,319 @@
-/// <reference path="../@types/index.d.ts" />
-/// <reference path="../helpers/vector-helper.ts" />
 /// <reference path="../helpers/math/matrix.ts" />
-/// <reference path="../helpers/ui.ts" />
-/// <reference path="../helpers/algorithm/line-search.ts" />
+/// <reference path="../helpers/math/math.ts" />
+/// <reference path="../helpers/algorithm/descent-method.ts" />
+/// <reference path="../@types/index.d.ts" />
+/// <reference path="../helpers/physics/spring.ts" />
+/// <reference path="../helpers/physics/kinetic.ts" />
 
 namespace SPRING_SIMULALTOR {
   const gravityAccelaration = 9.8;
-  const timeStepExplicit = 0.971;
-  const timeStepImplicit = 0.3;
+  const timestep = 0.1;
 
+  type EndpointOfSpring = {
+    /** index for positions array */
+    index: number;
+    /** specifies which array is refered, dynamiPositions or fixedPositions */
+    isFixed: boolean;
+  };
+  type Spring = {
+    origin: EndpointOfSpring;
+    end: EndpointOfSpring;
+    restlength: number;
+    springConstant: number;
+  };
+
+  /**
+   * the most accurate simulation of springs in this project
+   */
   export class Simulator {
-    springConstant = 1;
-    massOfEndpoint = 1;
-    restLength: number;
-    velocityOfEndPoint: Vec3 = [0, 0, 0];
-    forceToEndpoint: Vec3 = [0, 0, 0];
+    dynamicPositions: MATH_MATRIX.Vector;
+    fixedPositions: MATH_MATRIX.Vector;
+    /** masses of dynamic positions */
+    masses: number[] = [];
+    mass3: MATH_MATRIX.Vector;
+    springs: Spring[] = [];
+    /** map dynamic position index to array of strings connected to that position */
+    springsConnectedTo: number[][];
+    /** velocities of dynamic positions */
+    velocities: MATH_MATRIX.Vector;
 
-    constructor(public origin: Vec3, public end: Vec3, restLength?: number) {
-      this.restLength = restLength ?? VEC.len(VEC.subtract(end, origin));
+    constructor(
+      positions: number[],
+      isFixed: (positionIndex: number) => boolean,
+      springIndices: Vec2[],
+      masses: Float32Array,
+      restLengths?: Float32Array,
+      springConstants?: Float32Array,
+      /** from 0 to 1, the grater the heavier the mover becomes */
+      public airResistance = 1
+    ) {
+      const [dynamicPositions, fixedPositions]: [number[], number[]] = [[], []];
+      let [dynamicPositionIndex, fixedPositionIndex] = [0, 0];
+      const [dynamicPositionIndices, fixedPositionIndices, mass3]: [
+        number[],
+        number[],
+        number[]
+      ] = [[], [], []];
+      for (
+        let positionIndex = 0;
+        positionIndex < positions.length / 3;
+        positionIndex++
+      ) {
+        const isFixedPosition = isFixed(positionIndex);
+        (isFixedPosition ? fixedPositions : dynamicPositions).push(
+          positions[3 * positionIndex],
+          positions[3 * positionIndex + 1],
+          positions[3 * positionIndex + 2]
+        );
+        dynamicPositionIndices.push(
+          isFixedPosition ? -1 : dynamicPositionIndex++
+        );
+        fixedPositionIndices.push(isFixedPosition ? fixedPositionIndex++ : -1);
+        if (!isFixedPosition) {
+          const mass = masses[positionIndex];
+          this.masses.push(mass);
+          mass3.push(mass, mass, mass);
+        }
+      }
+      this.mass3 = new MATH_MATRIX.Vector(mass3);
+      this.dynamicPositions = new MATH_MATRIX.Vector(dynamicPositions);
+      this.fixedPositions = new MATH_MATRIX.Vector(fixedPositions);
+      this.velocities = MATH_MATRIX.Vector.zero(dynamicPositions.length);
+
+      this.springsConnectedTo = Array(dynamicPositions.length / 3);
+      for (
+        let springIndex = 0;
+        springIndex < springIndices.length;
+        springIndex++
+      ) {
+        const springEndpoints = [0, 1]
+          .map((originOrEnd) => springIndices[springIndex][originOrEnd])
+          .map((positionIndex) => {
+            const _isFixed = isFixed(positionIndex);
+            return {
+              index: (_isFixed ? fixedPositionIndices : dynamicPositionIndices)[
+                positionIndex
+              ],
+              isFixed: _isFixed,
+            };
+          });
+        this.springs.push({
+          origin: springEndpoints[0],
+          end: springEndpoints[1],
+          restlength:
+            restLengths?.[springIndex] ??
+            this.getPositionOfEndpointOfSpring(springEndpoints[0])
+              .subtractNew(
+                this.getPositionOfEndpointOfSpring(springEndpoints[1])
+              )
+              .norm(),
+          springConstant: springConstants?.[springIndex] ?? 1,
+        });
+        springEndpoints.forEach((endpoint) => {
+          if (endpoint.isFixed) return;
+          if (!this.springsConnectedTo[endpoint.index])
+            this.springsConnectedTo[endpoint.index] = [];
+          this.springsConnectedTo[endpoint.index].push(springIndex);
+        });
+      }
     }
 
-    simulateExplictEuler(): void {
-      this.addGravity();
-      this.addSpringForce();
-      const accelerationOfEndpoint = VEC.scale(
-        this.forceToEndpoint,
-        1 / this.massOfEndpoint
-      );
-      const newPosition = VEC.add(
-        this.end,
-        VEC.scale(this.velocityOfEndPoint, timeStepExplicit),
-        VEC.scale(
-          accelerationOfEndpoint,
-          0.5 * timeStepExplicit * timeStepExplicit
-        )
-      );
-      newPosition[2] = Math.max(newPosition[2], -80);
-      this.velocityOfEndPoint = VEC.scale(
-        VEC.subtract(newPosition, this.end),
-        timeStepExplicit
-      );
-      this.end = newPosition;
-      this.forceToEndpoint = [0, 0, 0];
-    }
-
-    /**
-     * ===== 1. Abstract: solve by energy optimization ======
-     *  x1 = argmin E(x) = 1/(2h^2) * mass * ||x-(x0+hv0)||^2 + PotentialEnergy(x)
-     *    first term is Newton's kinematic energe (1/2 * m * v^2).
-     *      and x0+hv0 is inertia, which means that x will be there if there is neither gravity or elastic force
-     *    second term is potential energy due to gravity and spring's elastic force.
-     *
-     * ===== 2. Optimization Method: argmin E(x) is solved by Newton's method =====
-     *  by applying 2nd order Taylor approximation,
-     *    E(x) ~= E(x0) + grad E(x0) (x-x0-hv0) + 1/2 * (x-x0)^t H (x-x0)
-     *    this E(x) satisfies E(x)/dx = 0 when it's minimum
-     *    hence grad E(x0) + H(x-x0) = 0
-     *    hence H (x-x0) = -grad E(x0)
-     *      solve x-x0 directoly using LU decomposition
-     *
-     *  ===== 3. Detail: Algebra and Analysys =====
-     *    grad E(x0) = 1/h^2 * mass * (x0-x0-hv0) - gravity(x0) - spring force(x0)
-     *    H = mass/h^2 - dGravity/dx - dSpringForce/dx
-     *      = mass/h^2 + k ( restLength/|x-a| (I - (x-a)(x-a)^t/|x-a|^2) - I )
-     *    hence H|x=x0 = mass/h^2 + k ( restLength/|x0-a| (I - (x0-a)(x0-a)^t/|x0-a|^2) - I )
-     *      here,
-     *        mass is mass matrix (i.e. diagonal matrix whose element is mass of the end point and other elements are 0)
-     *        h is constant timestep
-     *        k is spring coefficient
-     *        restLength is restlength of the spring
-     *        I is 3x3 identity matrix
-     *        (x-a) is vector from springs' origin to spring's end
-     *        (x-a)^t is transpose of (x-a)
-     *        (x-a)(x-a)^t is 3x3 matrix
-     *       hence, H is 3x3 matrix
-     *
-     *  ===== 4. Solve, Loop, and Return =====
-     *   Finally, solve (x-x0) such that H(x-x0) = -grad E(x0) using LU decomposition of H.
-     *   Then update x0_new = (x-x0) + x0
-     *   repeat the process 2 and 3 until |x - x_0| < small torelrance (like 0.1)
-     *   if |E(x) - E(x_0)| < small torelrance, return that x0_new
-     *   update v0 = (x-x_old) / h
-     */
-    simulateByEnergyMinimization(): void {
-      const tolerance = 1e-6;
-      const invTimestep = 1 / timeStepImplicit;
-      const massOverTimestep2 = this.massOfEndpoint * invTimestep * invTimestep;
-      // solve
-      const H = new MATH_MATRIX.Matrix(massOverTimestep2, 3, 3).subtract(
-        this.getDerivativeSpringForce()
-      );
-      const xOld: Vec3 = [...this.end];
-      const L = MATH_MATRIX.hessianModification(H, undefined, 1.1); // make sure that H is positive definite
-      const xMinusX0 = MATH_MATRIX.Solver.cholesky(
-        L,
-        this.getGradientOfEnergy(this.end).multiply(-1).elements,
+    simulate(): void {
+      const previousPositions = this.dynamicPositions.clone();
+      DESCENT_METHOD.updateByNewtonRaphson(
+        this.dynamicPositions,
+        this.energy.bind(this),
+        this.gradient.bind(this),
+        this.hessian.bind(this),
         true
       );
-      if (xMinusX0 === null) return;
-      const norm = VEC.len([xMinusX0[0], xMinusX0[1], xMinusX0[2]]);
-      if (norm < tolerance) return;
-      const stepsize = LINE_SEARCH.findStepsizeByWolfConditions(
-        (stepsize) =>
-          this.getEnergy(
-            VEC.add(this.end, VEC.scale(xMinusX0 as unknown as Vec3, stepsize))
-          ),
-        (stepsize) =>
-          this.getDirectionalDerivativeOfEnergy(
-            VEC.add(this.end, VEC.scale(xMinusX0 as unknown as Vec3, stepsize)),
-            [xMinusX0[0], xMinusX0[1], xMinusX0[2]]
-          ),
-        1e3,
-        0.1,
-        0.9,
-        10
-      );
-      if (stepsize === 0) return;
-      // update
-      for (let i = 0; i < 3; i++) this.end[i] += stepsize * xMinusX0[i];
-      this.velocityOfEndPoint = VEC.scale(
-        VEC.subtract(this.end, xOld),
-        invTimestep
-      );
-      UI.liElements[0].innerHTML = `▽f(xk)'u = ${this.getDirectionalDerivativeOfEnergy(
-        this.end,
-        VEC.scale([xMinusX0[0], xMinusX0[1], xMinusX0[2]], stepsize)
-      )}`;
-      UI.liElements[1].innerHTML = `|▽f(xk)|: ${Math.abs(
-        this.getGradientOfEnergy(this.end).norm()
-      )}`;
+      this.velocities = this.dynamicPositions
+        .subtractNew(previousPositions)
+        .multiplyScalar((1 / timestep) * (1 - this.airResistance));
     }
 
-    private addForce(force: Vec3): void {
-      this.forceToEndpoint = VEC.add(this.forceToEndpoint, force);
-    }
-
-    private addGravity(): void {
-      this.addForce(this.getGravity());
-    }
-
-    private addSpringForce(): void {
-      this.addForce(this.getSpringForce(this.end));
-    }
-
-    private getGravity(): Vec3 {
-      return [0, 0, -this.massOfEndpoint * gravityAccelaration];
-    }
-
-    private getSpringForce(x: Vec3): Vec3 {
-      const vectorOriginToEnd = VEC.subtract(x, this.origin);
-      /* 
-      spring force in 3d space is -k( ||v|| - r ) v/||v||
-       where 
-        k is spring coefficient (0 <= k <=1)
-        ||v|| is norm of vector v 
-        r is restlength
-        v is vector from spring's origin to end 
-        v/||v|| is normalized vector in the direction of the spring
-      */
-      const springForce = VEC.scale(
-        vectorOriginToEnd,
-        -this.springConstant *
-          (1 - this.restLength / VEC.len(vectorOriginToEnd))
-      );
-      return springForce;
-    }
-
-    /**
-     * get derivative of spring force wrt x at x=current position of endpoint
-     * -k ( restLength/|x0-a| (I - (x0-a)(x0-a)^t/|x0-a|^2) - I )
-     */
-    private getDerivativeSpringForce(): MATH_MATRIX.Matrix {
-      const x0a = new MATH_MATRIX.Vector(VEC.subtract(this.end, this.origin));
-      const x0a_norm = x0a.norm();
-      const identity = MATH_MATRIX.Matrix.identity(3);
+    getPositionOfEndpointOfSpring(
+      endpoint: EndpointOfSpring,
+      of?: MATH_MATRIX.Vector
+    ): MATH_MATRIX.Vector {
       return (
-        x0a
-          .multiply(x0a.transposeNew())
-          .multiply(-1 / x0a_norm / x0a_norm) as MATH_MATRIX.Matrix
-      )
-        .add(identity)
-        .multiply(this.restLength / x0a_norm)
-        .subtract(identity)
-        .multiply(-this.springConstant);
+        endpoint.isFixed ? this.getFixedPosition : this.getDynamicPosition
+      ).bind(this)(endpoint.index, of);
     }
 
-    private getDirectionalDerivativeOfEnergy(x: Vec3, direction: Vec3): number {
-      return VEC.dot(
-        this.getGradientOfEnergy(x).elements as unknown as Vec3,
-        direction
+    private energy(positions: MATH_MATRIX.Vector): number {
+      const kineticEergy = PHYSICS_KINETIC.energyGain(
+        positions,
+        this.dynamicPositions,
+        this.velocities,
+        timestep,
+        this.mass3
       );
-    }
-
-    /**
-     * E(x) = 1/(2h^2) * mass * ||x-(x0+hv0)||^2 + mass*g*z + 1/2 * k(|x-a|-r)^2
-     */
-    private getEnergy(x: Vec3): number {
-      const kineticEergy =
-        (0.5 / timeStepImplicit / timeStepImplicit) *
-        this.massOfEndpoint *
-        VEC.pow2(
-          VEC.subtract(
-            x,
-            this.end,
-            VEC.scale(this.velocityOfEndPoint, timeStepImplicit)
-          )
+      const gravityEnergy = MATH.sigma(
+        0,
+        positions.height / 3,
+        (positionIndex) =>
+          gravityAccelaration * (positions._(positionIndex * 3 + 2) + 1e6)
+      );
+      const springEnergy = MATH.sigma(0, this.springs.length, (springIndex) => {
+        const spring = this.springs[springIndex];
+        return PHYSICS_SPRING.energy(
+          this.getPositionOfEndpointOfSpring(spring.origin, positions),
+          this.getPositionOfEndpointOfSpring(spring.end, positions),
+          spring.restlength,
+          spring.springConstant
         );
-      const gravityPotential = gravityAccelaration * x[2];
-      const diff = VEC.len(VEC.subtract(x, this.origin)) - this.restLength;
-      const springPotential = 0.5 * this.springConstant * diff * diff;
-      return kineticEergy + gravityPotential + springPotential;
+      });
+      return kineticEergy + gravityEnergy + springEnergy;
     }
 
-    private getGradientOfEnergy(x: Vec3) {
-      return new MATH_MATRIX.Vector(
-        VEC.subtract(
-          VEC.scale(
-            VEC.subtract(
-              x,
-              this.end,
-              VEC.scale(this.velocityOfEndPoint, timeStepImplicit)
-            ),
-            this.massOfEndpoint / (timeStepImplicit * timeStepImplicit)
-          ),
-          this.getGravity(),
-          this.getSpringForce(x)
-        )
+    private getConnectedEndpointTo(
+      positionIndex: number,
+      spring: Spring
+    ): EndpointOfSpring {
+      return spring.origin.isFixed
+        ? spring.origin // since at least one of tow endpoints must be dynamic
+        : spring.end.isFixed
+        ? spring.end // since at least one of tow endpoints must be dynamic
+        : spring.origin.index === positionIndex
+        ? spring.end // since two endpoints cam not be the same point
+        : spring.origin;
+    }
+
+    private getDynamicPosition(
+      index: number,
+      of?: MATH_MATRIX.Vector
+    ): MATH_MATRIX.Vector {
+      return new MATH_MATRIX.Vector([
+        (of ?? this.dynamicPositions)._(index * 3),
+        (of ?? this.dynamicPositions)._(index * 3 + 1),
+        (of ?? this.dynamicPositions)._(index * 3 + 2),
+      ]);
+    }
+
+    private getFixedPosition(
+      index: number,
+      of?: MATH_MATRIX.Vector
+    ): MATH_MATRIX.Vector {
+      return new MATH_MATRIX.Vector([
+        (of ?? this.fixedPositions)._(index * 3),
+        (of ?? this.fixedPositions)._(index * 3 + 1),
+        (of ?? this.fixedPositions)._(index * 3 + 2),
+      ]);
+    }
+
+    private getSpringsConnectedToPosition(positionIndex: number): Spring[] {
+      return this.springsConnectedTo[positionIndex].map(
+        (springIndex) => this.springs[springIndex]
       );
+    }
+
+    private gradient(positions: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
+      const gradient = MATH_MATRIX.Vector.zero(this.dynamicPositions.height);
+      const kineticGradient = PHYSICS_KINETIC.gradientEnergyGain(
+        positions,
+        this.dynamicPositions,
+        this.velocities,
+        timestep,
+        this.mass3
+      );
+      for (
+        let positionIndex = 0;
+        positionIndex < positions.height / 3;
+        positionIndex++
+      ) {
+        const position = this.getDynamicPosition(positionIndex, positions);
+        const gravitationalGradient = new MATH_MATRIX.Vector([
+          0,
+          0,
+          this.masses[positionIndex] * gravityAccelaration,
+        ]);
+        const springGradient = MATH_MATRIX.Vector.zero(3);
+        for (let spring of this.getSpringsConnectedToPosition(positionIndex)) {
+          const connectedEndpoint = this.getConnectedEndpointTo(
+            positionIndex,
+            spring
+          );
+          springGradient.add(
+            PHYSICS_SPRING.energyGradient(
+              position,
+              this.getPositionOfEndpointOfSpring(
+                connectedEndpoint,
+                connectedEndpoint.isFixed ? this.fixedPositions : positions
+              ),
+              spring.restlength,
+              spring.springConstant
+            )
+          );
+        }
+        const totalGradient = gravitationalGradient.add(springGradient);
+        for (let xyz = 0; xyz < 3; xyz++)
+          gradient.set(positionIndex * 3 + xyz, totalGradient._(xyz));
+      }
+      return gradient.add(kineticGradient);
+    }
+
+    private hessian(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {
+      const kineticHessian = PHYSICS_KINETIC.hessianEnergyGain(
+        timestep,
+        this.mass3
+      );
+      const springHessian = this.getHessianOfSpringEnergy(positions);
+      return kineticHessian.add(springHessian);
+    }
+
+    private getHessianOfSpringEnergy(
+      positions: MATH_MATRIX.Vector
+    ): MATH_MATRIX.Matrix {
+      const hessian = MATH_MATRIX.Matrix.zero(
+        positions.height,
+        positions.height
+      );
+      for (
+        let positionIndex = 0;
+        positionIndex < positions.height / 3;
+        positionIndex++
+      ) {
+        // derivative w.r.t. connected points
+        for (let spring of this.getSpringsConnectedToPosition(positionIndex)) {
+          const connectedEndpoint = this.getConnectedEndpointTo(
+            positionIndex,
+            spring
+          );
+          const [point, connectedPoint] = [
+            this.getDynamicPosition(positionIndex, positions),
+            this.getPositionOfEndpointOfSpring(
+              connectedEndpoint,
+              connectedEndpoint.isFixed ? this.fixedPositions : positions
+            ),
+          ];
+          const hessian_ij = PHYSICS_SPRING.energyHessian(
+            point,
+            connectedPoint,
+            spring.restlength,
+            spring.springConstant
+          );
+          for (let row = 0; row < 3; row++)
+            for (let column = 0; column < 3; column++) {
+              const [rowI, columnJ] = [
+                3 * positionIndex + row,
+                3 * connectedEndpoint.index + column,
+              ];
+              // change of point does not contribute to derivative 'cause it does  not change
+              if (!connectedEndpoint.isFixed)
+                hessian.set(rowI, columnJ, hessian_ij._(row, column));
+              // derivatiev w.r.t. qi itself
+              // not need to recalculate derivative w.r.t qi directly since it is sum of negative derivative w.r.t. pj added w.r.t. qi (see comment above)
+              const columnI = 3 * positionIndex + column;
+              hessian.set(
+                rowI,
+                columnI,
+                hessian._(rowI, columnI) - hessian_ij._(row, column)
+              );
+            }
+        }
+      }
+      return hessian;
     }
   }
 }

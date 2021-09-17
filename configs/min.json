@@ -1,9 +1,0 @@
-{
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/min.js"
-    },
-    "include": [
-        "../ts/min/*.ts"
-    ]
-}

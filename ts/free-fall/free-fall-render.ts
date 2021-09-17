@@ -32,8 +32,4 @@ namespace FREE_FALL_RENDER {
       },
     });
   }
-
-  export function restart() {
-    RENDER_HELPER.clear();
-  }
 }

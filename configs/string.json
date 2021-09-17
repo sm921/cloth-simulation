@@ -1,9 +1,0 @@
-{
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/string.js"
-    },
-    "include": [
-        "../ts/string/*.ts"
-    ]
-}
