@@ -6,7 +6,7 @@ namespace SPRING_RENDER {
   let balls: THREE.Mesh[] = [];
   const groundHeight = -100;
   let lines: THREE.Line[] = [];
-  let simulator: SPRING_SIMULALTOR.Simulator;
+  let simulator: SPRING_SIMULALTOR_TRUE.Simulator;
 
   export function clearLinesAndBalls(): void {
     RENDER_HELPER.clear(balls);
@@ -19,7 +19,7 @@ namespace SPRING_RENDER {
       params.numberOfPoints ?? Math.max(2, Math.floor(length / 5));
     const mass = params.mass ?? 0.01;
     const restlength = params.restlength ?? length / numberOfPoints;
-    simulator = new SPRING_SIMULALTOR.Simulator(
+    simulator = new SPRING_SIMULALTOR_TRUE.Simulator(
       range(numberOfPoints, 0, length / numberOfPoints)
         .map((num) => [num, 0, 40])
         .flat(),
@@ -37,8 +37,8 @@ namespace SPRING_RENDER {
 
   export function initLinesAndBalls() {
     simulator.springs.forEach((spring) => {
-      const [origin, end] = [spring.origin, spring.end].map(
-        (endpoint) => simulator.getPositionOfEndpointOfSpring(endpoint).elements
+      const [origin, end] = [spring.originIndex, spring.endIndex].map(
+        (endpoint) => simulator.getPosition(endpoint).elements
       );
       balls.push(RENDER_HELPER.addBall(origin[0], origin[1], origin[2]));
       balls.push(RENDER_HELPER.addBall(end[0], end[1], end[2]));
@@ -58,9 +58,8 @@ namespace SPRING_RENDER {
       simulate: () => {
         simulator.simulate();
         simulator.springs.forEach((spring, i) => {
-          const [origin, end] = [spring.origin, spring.end].map(
-            (endpoint) =>
-              simulator.getPositionOfEndpointOfSpring(endpoint).elements
+          const [origin, end] = [spring.originIndex, spring.endIndex].map(
+            (endpoint) => simulator.getPosition(endpoint).elements
           );
           const [ball1, ball2] = [balls[2 * i], balls[2 * i + 1]];
           ball1.position.set(origin[0], origin[1], origin[2]);

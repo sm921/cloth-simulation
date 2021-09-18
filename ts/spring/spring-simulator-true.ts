@@ -17,9 +17,9 @@ namespace SPRING_SIMULALTOR_TRUE {
   };
 
   /**
-   * not the most accurate but relatively simple simulation of springs in this project
+   * the most accurate simulation of springs in this project
    */
-  export class Simulator {
+  export class SimulatorTrue {
     positions: MATH_MATRIX.Vector;
     /** masses of positions */
     mass3: MATH_MATRIX.Vector;
