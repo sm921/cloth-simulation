@@ -4,6 +4,7 @@
 
 namespace SPRING_RENDER {
   let balls: THREE.Mesh[] = [];
+  const groundHeight = -100;
   let lines: THREE.Line[] = [];
   let simulator: SPRING_SIMULALTOR.Simulator;
 
@@ -19,7 +20,7 @@ namespace SPRING_RENDER {
     const mass = params.mass ?? 0.01;
     const restlength = params.restlength ?? length / numberOfPoints;
     simulator = new SPRING_SIMULALTOR.Simulator(
-      range(numberOfPoints, 0, restlength)
+      range(numberOfPoints, 0, length / numberOfPoints)
         .map((num) => [num, 0, 40])
         .flat(),
       (positionIndex) => (params.fixedPoints ?? [0]).includes(positionIndex),
@@ -28,7 +29,9 @@ namespace SPRING_RENDER {
       new Float32Array(arrayOf(mass, numberOfPoints)),
       new Float32Array(arrayOf(restlength, numberOfPoints)),
       new Float32Array(arrayOf(params.springConstant ?? 1, numberOfPoints)),
-      0
+      0,
+      groundHeight,
+      params.constantOfRestitution
     );
   }
 
@@ -51,7 +54,7 @@ namespace SPRING_RENDER {
   export function render() {
     initSimulator();
     RENDER_HELPER.render({
-      cameraParams: { position: [0, -100, 2] },
+      cameraParams: { position: [0, groundHeight, 2] },
       simulate: () => {
         simulator.simulate();
         simulator.springs.forEach((spring, i) => {
@@ -69,7 +72,7 @@ namespace SPRING_RENDER {
         });
       },
       initModel: () => {
-        RENDER_HELPER.addPlane(1000, 1000, { position: [0, 0, -100] });
+        RENDER_HELPER.addPlane(1000, 1000, { position: [0, 0, groundHeight] });
         initLinesAndBalls();
       },
     });
@@ -92,5 +95,6 @@ namespace SPRING_RENDER {
     mass?: number;
     restlength?: number;
     springConstant?: number;
+    constantOfRestitution?: number;
   }
 }

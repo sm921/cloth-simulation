@@ -45,7 +45,9 @@ namespace SPRING_SIMULALTOR {
       restLengths?: Float32Array,
       springConstants?: Float32Array,
       /** from 0 to 1, the grater the heavier the mover becomes */
-      public airResistance = 1
+      public airResistance = 1,
+      public groundHeight = 0,
+      public constantOfRestitution = 0.9
     ) {
       const [dynamicPositions, fixedPositions]: [number[], number[]] = [[], []];
       let [dynamicPositionIndex, fixedPositionIndex] = [0, 0];
@@ -130,6 +132,7 @@ namespace SPRING_SIMULALTOR {
       this.velocities = this.dynamicPositions
         .subtractNew(previousPositions)
         .multiplyScalar((1 / timestep) * (1 - this.airResistance));
+      this.handleCollisions();
     }
 
     getPositionOfEndpointOfSpring(
@@ -153,7 +156,7 @@ namespace SPRING_SIMULALTOR {
         0,
         positions.height / 3,
         (positionIndex) =>
-          gravityAccelaration * (positions._(positionIndex * 3 + 2) + 1e6)
+          gravityAccelaration * positions._(positionIndex * 3 + 2)
       );
       const springEnergy = MATH.sigma(0, this.springs.length, (springIndex) => {
         const spring = this.springs[springIndex];
@@ -251,6 +254,24 @@ namespace SPRING_SIMULALTOR {
           gradient.set(positionIndex * 3 + xyz, totalGradient._(xyz));
       }
       return gradient.add(kineticGradient);
+    }
+
+    private handleCollisions(): void {
+      // against ground
+      for (
+        let positionIndex = 0;
+        positionIndex < this.dynamicPositions.height;
+        positionIndex++
+      ) {
+        if (
+          this.dynamicPositions._(positionIndex * 3 + 2) < this.groundHeight
+        ) {
+          this.dynamicPositions.set(3 * positionIndex + 2, this.groundHeight);
+          for (let xyz = 0; xyz < 3; xyz++)
+            this.velocities.elements[3 * positionIndex + xyz] *=
+              (xyz === 2 ? -1 : 1) * this.constantOfRestitution;
+        }
+      }
     }
 
     private hessian(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {

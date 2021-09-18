@@ -2,7 +2,20 @@
 /// <reference path="spring-render.ts" />
 
 namespace SPRING_MAIN {
-  let params: SPRING_RENDER.InitParams = {};
+  let params: SPRING_RENDER.InitParams = {
+    springConstant: 1,
+    numberOfPoints: 16,
+    length: 80,
+    mass: 1e-2,
+    restlength: 5,
+    fixedPoints: [0],
+    connectedPoints: [...Array(15)].map((_, i) => [i, i + 1]),
+    constantOfRestitution: 0.3,
+  };
+  let input: {
+    restlength?: HTMLInputElement;
+    connectedPoints?: HTMLInputElement;
+  } = {};
   initUI();
   SPRING_RENDER.render();
 
@@ -21,20 +34,36 @@ namespace SPRING_MAIN {
       16,
       1,
       (numberOfPoints) => {
-        restartSimulator((params) => (params.numberOfPoints = numberOfPoints));
+        restartSimulator((params) => {
+          params.numberOfPoints = numberOfPoints;
+          params.connectedPoints = [...Array(numberOfPoints - 1)].map(
+            (_, i) => [i, i + 1]
+          );
+          input.connectedPoints.value = params.connectedPoints.flat().join();
+        });
       }
     );
     UI.addLinebreak();
     UI.addInputNumber("length = ", 1, 500, 80, 1, (length) =>
-      restartSimulator((params) => (params.length = length))
+      restartSimulator((params) => {
+        params.length = length;
+        params.restlength = length / params.numberOfPoints;
+        input.restlength.value = String(params.restlength);
+      })
     );
     UI.addLinebreak();
     UI.addInputNumber("mass = ", 0.01, 100, 0.01, 0.01, (mass) =>
       restartSimulator((params) => (params.mass = mass))
     );
     UI.addLinebreak();
-    UI.addInputNumber("rest length = ", 0, 100, 5, 1, (restlength) =>
-      restartSimulator((params) => (params.restlength = restlength))
+    input.restlength = UI.addInputNumber(
+      "rest length = ",
+      0,
+      100,
+      5,
+      1,
+      (restlength) =>
+        restartSimulator((params) => (params.restlength = restlength))
     );
     UI.addLinebreak();
     UI.addInputText("fixed points = ", "0", (fixedPoints) =>
@@ -46,9 +75,9 @@ namespace SPRING_MAIN {
       )
     );
     UI.addLinebreak();
-    UI.addInputText(
+    input.connectedPoints = UI.addInputText(
       "connect points = ",
-      "0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13,14,14,15",
+      params.connectedPoints?.flat().join(),
       (connectedPoints) =>
         restartSimulator((params) => {
           const flatConnectedPoints = connectedPoints
@@ -61,6 +90,18 @@ namespace SPRING_MAIN {
               flatConnectedPoints[2 * i + 1],
             ];
         })
+    );
+    UI.addLinebreak();
+    UI.addInputNumber(
+      "constant of restitution =",
+      0,
+      1,
+      0.3,
+      0.1,
+      (constantOfRestitution) =>
+        restartSimulator(
+          (params) => (params.constantOfRestitution = constantOfRestitution)
+        )
     );
   }
   function restartSimulator(
