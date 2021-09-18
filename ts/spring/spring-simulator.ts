@@ -5,7 +5,7 @@
 /// <reference path="../helpers/physics/spring.ts" />
 /// <reference path="../helpers/physics/kinetic.ts" />
 
-namespace SPRING_SIMULALTOR_TRUE {
+namespace SPRING_SIMULALTOR {
   const gravityAccelaration = 9.8;
   const timestep = 0.1;
 

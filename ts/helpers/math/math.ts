@@ -1,4 +1,8 @@
 namespace MATH {
+  export function arrayOf(value: number, size: number): number[] {
+    return [...Array(size)].map((_) => value);
+  }
+
   export function sigma(
     from: number,
     to: number,
@@ -9,5 +13,9 @@ namespace MATH {
       sum += fn(i);
     }
     return sum;
+  }
+
+  export function range(size: number, from = 0, step = 1): number[] {
+    return [...Array(size)].map((_, i) => from + i * step);
   }
 }

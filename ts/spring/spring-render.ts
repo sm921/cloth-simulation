@@ -1,12 +1,13 @@
 /// <reference path="../@types/index.d.ts" />
 /// <reference path="../helpers/render-helper.ts" />
+/// <reference path="../helpers/math/math.ts" />
 /// <reference path="spring-simulator.ts" />
 
 namespace SPRING_RENDER {
   let balls: THREE.Mesh[] = [];
   const groundHeight = -100;
   let lines: THREE.Line[] = [];
-  let simulator: SPRING_SIMULALTOR_TRUE.Simulator;
+  let simulator: SPRING_SIMULALTOR.Simulator;
 
   export function clearLinesAndBalls(): void {
     RENDER_HELPER.clear(balls);
@@ -19,16 +20,18 @@ namespace SPRING_RENDER {
       params.numberOfPoints ?? Math.max(2, Math.floor(length / 5));
     const mass = params.mass ?? 0.01;
     const restlength = params.restlength ?? length / numberOfPoints;
-    simulator = new SPRING_SIMULALTOR_TRUE.Simulator(
-      range(numberOfPoints, 0, length / numberOfPoints)
+    simulator = new SPRING_SIMULALTOR.Simulator(
+      MATH.range(numberOfPoints, 0, length / numberOfPoints)
         .map((num) => [num, 0, 40])
         .flat(),
       (positionIndex) => (params.fixedPoints ?? [0]).includes(positionIndex),
       params.connectedPoints ??
-        range(numberOfPoints - 1, 0, 1).map((num) => [num, num + 1]),
-      new Float32Array(arrayOf(mass, numberOfPoints)),
-      new Float32Array(arrayOf(restlength, numberOfPoints)),
-      new Float32Array(arrayOf(params.springConstant ?? 1, numberOfPoints)),
+        MATH.range(numberOfPoints - 1, 0, 1).map((num) => [num, num + 1]),
+      new Float32Array(MATH.arrayOf(mass, numberOfPoints)),
+      new Float32Array(MATH.arrayOf(restlength, numberOfPoints)),
+      new Float32Array(
+        MATH.arrayOf(params.springConstant ?? 1, numberOfPoints)
+      ),
       0,
       groundHeight,
       params.constantOfRestitution
@@ -75,13 +78,6 @@ namespace SPRING_RENDER {
         initLinesAndBalls();
       },
     });
-  }
-
-  function arrayOf(value: number, size: number): number[] {
-    return [...Array(size)].map((_) => value);
-  }
-  function range(size: number, from: number, step: number): number[] {
-    return [...Array(size)].map((_, i) => from + i * step);
   }
 
   export interface InitParams {

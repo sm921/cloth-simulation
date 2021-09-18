@@ -9,7 +9,7 @@ namespace SPRING_MAIN {
     mass: 1e-2,
     restlength: 5,
     fixedPoints: [0],
-    connectedPoints: [...Array(15)].map((_, i) => [i, i + 1]),
+    connectedPoints: MATH.range(15).map((i) => [i, i + 1]),
     constantOfRestitution: 0.3,
   };
   let input: {
@@ -36,9 +36,10 @@ namespace SPRING_MAIN {
       (numberOfPoints) => {
         restartSimulator((params) => {
           params.numberOfPoints = numberOfPoints;
-          params.connectedPoints = [...Array(numberOfPoints - 1)].map(
-            (_, i) => [i, i + 1]
-          );
+          params.connectedPoints = MATH.range(numberOfPoints - 1).map((i) => [
+            i,
+            i + 1,
+          ]);
           if (input.connectedPoints)
             input.connectedPoints.value = params.connectedPoints.flat().join();
         });
