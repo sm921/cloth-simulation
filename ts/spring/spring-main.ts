@@ -39,7 +39,8 @@ namespace SPRING_MAIN {
           params.connectedPoints = [...Array(numberOfPoints - 1)].map(
             (_, i) => [i, i + 1]
           );
-          input.connectedPoints.value = params.connectedPoints.flat().join();
+          if (input.connectedPoints)
+            input.connectedPoints.value = params.connectedPoints.flat().join();
         });
       }
     );
@@ -47,8 +48,9 @@ namespace SPRING_MAIN {
     UI.addInputNumber("length = ", 1, 500, 80, 1, (length) =>
       restartSimulator((params) => {
         params.length = length;
-        params.restlength = length / params.numberOfPoints;
-        input.restlength.value = String(params.restlength);
+        params.restlength = length / (params?.numberOfPoints ?? 16);
+        if (input.restlength)
+          input.restlength.value = String(params.restlength);
       })
     );
     UI.addLinebreak();
@@ -77,7 +79,7 @@ namespace SPRING_MAIN {
     UI.addLinebreak();
     input.connectedPoints = UI.addInputText(
       "connect points = ",
-      params.connectedPoints?.flat().join(),
+      params.connectedPoints?.flat()?.join() ?? "",
       (connectedPoints) =>
         restartSimulator((params) => {
           const flatConnectedPoints = connectedPoints
