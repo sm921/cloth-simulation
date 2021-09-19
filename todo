@@ -1,4 +1,3 @@
-- cloth simulation (naive & true)
 - 1D multigrid mass-spring model implementation
     - FMG-line-search
     - Newton-FMG

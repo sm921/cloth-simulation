@@ -15,22 +15,24 @@ namespace CLOTH_RENDER {
   }
 
   export function initSimulator(params: InitParams = {}) {
-    const length = params.length ?? 80;
-    const numberOfPoints =
-      params.numberOfPoints ?? Math.max(2, Math.floor(length / 5));
+    const length = params.length ?? 81;
+    const numberOfPoints = params.numberOfPoints ?? 6;
     const mass = params.mass ?? 0.001;
-    const restlength = 40 ?? params.restlength ?? length / numberOfPoints;
+    const restlength = length / (numberOfPoints - 1);
     const [positions, springs] = initPositions(length, length, restlength, 40);
     simulator = new CLOTH_SIMULATOR.Simulator(
       positions,
-      (positionIndex) => (params.fixedPoints ?? [0, 2]).includes(positionIndex),
+      (positionIndex) =>
+        (
+          params.fixedPoints ?? [0, Math.sqrt(positions.length / 3) - 1]
+        ).includes(positionIndex),
       springs,
-      new Float32Array(MATH.arrayOf(mass, numberOfPoints)),
-      new Float32Array(MATH.arrayOf(restlength, numberOfPoints)),
+      new Float32Array(MATH.arrayOf(mass, positions.length)),
+      new Float32Array(MATH.arrayOf(restlength, springs.length)),
       new Float32Array(
-        MATH.arrayOf(params.springConstant ?? 1, numberOfPoints)
+        MATH.arrayOf(params.springConstant ?? 1, springs.length)
       ),
-      0,
+      50 / (length * length),
       groundHeight,
       params.constantOfRestitution ?? 0.1
     );
@@ -47,23 +49,11 @@ namespace CLOTH_RENDER {
     const [widthMaxIndex, heightMaxIndex] = [width, height].map((length) =>
       Math.ceil(length / restlength)
     );
-    const [widthMaxRestlength, heightMaxRestlength] = [width, height].map(
-      (length) => {
-        const remainder = length % restlength;
-        return remainder === 0 ? restlength : remainder;
-      }
-    );
     // create a square cloth
     for (let widthIndex = 0; widthIndex <= widthMaxIndex; widthIndex++) {
-      const x =
-        widthIndex === widthMaxIndex
-          ? (widthIndex - 1) * restlength + widthMaxRestlength
-          : widthIndex * restlength;
+      const x = widthIndex * restlength;
       for (let heightIndex = 0; heightIndex <= heightMaxIndex; heightIndex++) {
-        const y =
-          heightIndex === heightMaxIndex
-            ? (heightIndex - 1) * restlength + heightMaxRestlength
-            : heightIndex * restlength;
+        const y = heightIndex * restlength;
         positions.push(x, y, zPosition);
       }
     }
