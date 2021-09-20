@@ -79,3 +79,29 @@ test("cholesky decomposition", () => {
   );
   expect(MATH_MATRIX.cholesky(nonPositiveDefiniteMatrix)).toEqual(null);
 });
+test("transpose", () => {
+  expect(
+    new MATH_MATRIX.Matrix([1, 2, 3, 4, 5, 6, 7, 8, 9], 3, 3).transpose()
+      .elements
+  ).toEqual(new Float32Array([1, 4, 7, 2, 5, 8, 3, 6, 9]));
+});
+test("vector", () => {
+  const A = new MATH_MATRIX.Matrix(
+    [
+      1,
+      2,
+      3, //1
+      4,
+      5,
+      6, //2
+      7,
+      8,
+      9,
+    ], //3
+    3,
+    3
+  );
+  const x = new MATH_MATRIX.Vector([1, 2, 3]);
+  expect(x.multiplyMatrix(A).elements).toEqual(new Float32Array([14, 32, 50]));
+  expect(A.multiplyNew(x).elements).toEqual(new Float32Array([14, 32, 50]));
+});

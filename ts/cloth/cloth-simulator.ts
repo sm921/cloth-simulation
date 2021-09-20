@@ -41,7 +41,8 @@ namespace CLOTH_SIMULATOR {
       /** from 0 to 1, the grater the heavier the mover becomes */
       public airResistance = 1,
       public groundHeight = 0,
-      public constantOfRestitution = 0.9
+      public constantOfRestitution = 0.9,
+      public usesProjectiveDynamics = false
     ) {
       this.positions = new MATH_MATRIX.Vector(positions);
       this.mass3 = MATH_MATRIX.Vector.zero(positions.length);
@@ -76,17 +77,20 @@ namespace CLOTH_SIMULATOR {
           this.springsConnectedTo[endpointIndex].push(springIndex);
         });
       }
+      this.prefactorMatricesForProjectiveDynamics();
     }
 
     simulate(): void {
       const previousPositions = this.positions.clone();
-      DESCENT_METHOD.updateByNewtonRaphson(
-        this.positions,
-        this.energy.bind(this),
-        this.gradient.bind(this),
-        this.hessian.bind(this),
-        true
-      );
+      if (this.usesProjectiveDynamics) this.updateByProjectiveDynamics();
+      else
+        DESCENT_METHOD.updateByNewtonRaphson(
+          this.positions,
+          this.energy.bind(this),
+          this.gradient.bind(this),
+          this.hessian.bind(this),
+          true
+        );
       this.unmoveFixedPoints(previousPositions);
       this.velocities = this.positions
         .subtractNew(previousPositions)
@@ -266,6 +270,119 @@ namespace CLOTH_SIMULATOR {
         for (let xyz = 0; xyz < 3; xyz++)
           if (this.isFixed[i])
             this.positions.set(3 * i + xyz, previousPositions._(3 * i + xyz));
+    }
+
+    /**
+     * 3nx3n constant matrix
+     * mass matrix multiplied by 1/h^2 */
+    private Mh2!: MATH_MATRIX.Matrix;
+    /** 3nx3n constant matrix (lower triangle positive definite)
+     * L' = M/h^2 + Sigma_i (k_i * S_i^t A_i^t A_i S_i)
+     * L = modify L' so that L is positive definite and let L be L'^t L'
+     * see LHS of exp 10 in the paper
+     */
+    private L!: MATH_MATRIX.Matrix;
+    /**
+     * 3nx3 constant matrix
+     * Sigma_i (k_i S_i^t A_i^t B_i)
+     * see RHS of exp 10 in the paper
+     */
+    private kSAB: MATH_MATRIX.Matrix[] = [];
+
+    private updateByProjectiveDynamics(): void {
+      if (this.Mh2 === undefined) this.prefactorMatricesForProjectiveDynamics();
+      this.localSolve();
+      this.globalSolve();
+    }
+
+    // projective dynamics. for detail read section 3.3 of https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
+    private prefactorMatricesForProjectiveDynamics(): void {
+      /** 3n x 3n matrix (mass matrix devided by timestep^2) */
+      this.Mh2 = MATH_MATRIX.Matrix.zero(
+        this.positions.height,
+        this.positions.height
+      );
+      for (let i = 0; i < this.Mh2.height; i++)
+        this.Mh2.set(i, i, this.mass3._(i) / timestep / timestep);
+      this.L = this.Mh2.clone();
+      for (let spring of this.springs) {
+        const k_i = spring.springConstant;
+        /** 3x3n selection matrix of endpoints of an i th spring (see exp 10 in the paper)*/
+        const S_i = MATH_MATRIX.Matrix.zero(this.positions.height, 3);
+        for (let xyz of [0, 1, 2]) {
+          S_i.set(xyz, spring.originIndex * 3 + xyz, 1);
+          S_i.set(xyz, spring.endIndex * 3 + xyz, -1);
+        }
+        /** 3x3 linear map matrix of endpoints of an i th spring  (see exp 10 in the paper)*/
+        const A_i = new MATH_MATRIX.Matrix(0.5, 3, 3);
+        /** 3x3 linear map matrix of auxiliary poiint of an i th spring  (see exp 10 in the paper)*/
+        const B_i = A_i.clone();
+        this.L.add(
+          S_i.transpose()
+            .multiply(A_i.transpose())
+            .multiply(A_i)
+            .multiply(S_i)
+            .multiply(k_i)
+        );
+        this.kSAB.push(
+          S_i.transpose().multiply(A_i.transpose()).multiply(B_i).multiply(k_i)
+        );
+      }
+      this.L = MATH_MATRIX.hessianModification(this.L); // cholesky decomposition with modification
+    }
+    /** solve p_i for all springs (see exp 10 in the paper)
+     * paper https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
+     */
+    private localSolve(): MATH_MATRIX.Vector[] {
+      /* minimizing p is achieved by making p restlength vectors in directions of springs */
+      const p: MATH_MATRIX.Vector[] = [];
+      for (let spring of this.springs) {
+        const [[x1, y1, z1], [x2, y2, z2]] = [
+          spring.originIndex,
+          spring.endIndex,
+        ].map((springIndex) =>
+          [0, 1, 2].map((xyz) => this.positions._(springIndex * 3 + xyz))
+        );
+        const springVector = new MATH_MATRIX.Vector([
+          x1 - x2,
+          y1 - y2,
+          z1 - z2,
+        ]);
+        p.push(
+          springVector.multiplyScalar(spring.restlength / springVector.norm())
+        );
+      }
+      return p;
+    }
+
+    /**
+     * paper https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
+     */
+    private globalSolve(): void {
+      const g = MATH_MATRIX.Vector.zero(this.positions.height);
+      for (let i = 0; i < g.height / 3; i++)
+        g.set(3 * i + 2, -gravityAccelaration * this.mass3._(3 * i));
+      // update q to sn (= qn + hvn + h^2M^-1fext)
+      const sn = this.positions
+        .add(this.velocities.multiplyScalarNew(timestep))
+        .add(
+          (this.Mh2.inverseNew() as MATH_MATRIX.Matrix).multiplyNew(
+            g
+          ) as MATH_MATRIX.Vector
+        );
+      // set MH2 sn
+      const Mh2SnAddedBySigmakSABp = this.Mh2.multiplyNew(sn);
+      /** auxiliary points. see exp 10 in the paper */
+      const p = this.localSolve();
+      /** RHS of exp 10 in the paper */
+      for (let i = 0; i < p.length; i++)
+        Mh2SnAddedBySigmakSABp.add(this.kSAB[i].multiplyNew(p[i]));
+      this.positions.elements =
+        MATH_MATRIX.Solver.cholesky(
+          this.L,
+          Mh2SnAddedBySigmakSABp.elements,
+          true
+        ) ?? this.positions.elements;
     }
   }
 }

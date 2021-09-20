@@ -91,6 +91,7 @@ namespace UI {
     printTo(0, text);
   }
   export function printTo(index: number, text: string | number): void {
+    if (liElements.length === 0) addLiElements(1);
     liElements[index].innerHTML = String(text);
   }
 }

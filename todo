@@ -1,7 +1,9 @@
 - 1D multigrid mass-spring model implementation
+    - Gelerkin multigrid
     - FMG-line-search
     - Newton-FMG
 - 2D multigrid mass-spring model implementation
+    - Gelerkin multigrid
     - FMG-line-search
     - Newton-FMG
 - three.js ray -> drag&drop vertex

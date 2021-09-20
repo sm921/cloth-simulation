@@ -15,16 +15,23 @@ namespace CLOTH_RENDER {
   }
 
   export function initSimulator(params: InitParams = {}) {
-    const length = params.length ?? 81;
-    const numberOfPoints = params.numberOfPoints ?? 6;
-    const mass = params.mass ?? 0.001;
+    const length = params.length ?? 80;
+    const numberOfPoints = params.numberOfPoints ?? 5;
+    const mass = params.mass ?? 0.01;
     const restlength = length / (numberOfPoints - 1);
     const [positions, springs] = initPositions(length, length, restlength, 40);
     simulator = new CLOTH_SIMULATOR.Simulator(
       positions,
       (positionIndex) =>
         (
-          params.fixedPoints ?? [0, Math.sqrt(positions.length / 3) - 1]
+          params.fixedPoints ?? [
+            // left edge
+            // 0,
+            Math.sqrt(positions.length / 3) - 1,
+            // right edge
+            // numberOfPoints * (numberOfPoints - 1),
+            positions.length / 3 - 1,
+          ]
         ).includes(positionIndex),
       springs,
       new Float32Array(MATH.arrayOf(mass, positions.length)),
@@ -34,7 +41,8 @@ namespace CLOTH_RENDER {
       ),
       50 / (length * length),
       groundHeight,
-      params.constantOfRestitution ?? 0.1
+      params.constantOfRestitution ?? 0.1,
+      params.usesProjectiveDynamics ?? false
     );
   }
 
@@ -159,5 +167,6 @@ namespace CLOTH_RENDER {
     restlength?: number;
     springConstant?: number;
     constantOfRestitution?: number;
+    usesProjectiveDynamics?: boolean;
   }
 }

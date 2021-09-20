@@ -234,6 +234,14 @@ namespace MATH_MATRIX {
       return this.elements[this.getFlatArrayIndex(rowIndex, columnIndex)];
     }
 
+    transpose(): Matrix {
+      const t = Matrix.zero(this.height, this.width);
+      for (let row = 0; row < t.height; row++)
+        for (let column = 0; column < t.width; column++)
+          t.set(row, column, this._(column, row));
+      return t;
+    }
+
     private getFlatArrayIndex(rowIndex: number, columnIndex: number): number {
       return this.width * rowIndex + columnIndex;
     }
@@ -336,8 +344,8 @@ namespace MATH_MATRIX {
     }
     /** return Ax */
     multiplyMatrix(matrix: Matrix): Vector {
-      const product = Vector.zero(this.height);
-      for (let row = 0; row < this.height; row++)
+      const product = Vector.zero(matrix.height);
+      for (let row = 0; row < product.height; row++)
         for (let column = 0; column < matrix.width; column++)
           product.elements[row] += matrix._(row, column) * this._(column);
       return product;
@@ -387,7 +395,7 @@ namespace MATH_MATRIX {
       this.elements[index] = element;
     }
 
-    transpose(): this {
+    override transpose(): this {
       [this.width, this.height] = [this.height, this.width];
       return this;
     }
