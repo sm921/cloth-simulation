@@ -1,4 +1,3 @@
-/// <reference path="../helpers/math/matrix.ts" />
 /// <reference path="../helpers/math/math.ts" />
 /// <reference path="../helpers/algorithm/descent-method.ts" />
 /// <reference path="../@types/index.d.ts" />
@@ -20,14 +19,14 @@ namespace SPRING_SIMULALTOR {
    * not the most accurate but relatively simple simulation of springs in this project
    */
   export class Simulator {
-    positions: MATH_MATRIX.Vector;
+    positions: MATH.Vector;
     /** masses of positions */
-    mass3: MATH_MATRIX.Vector;
+    mass3: MATH.Vector;
     springs: Spring[] = [];
     /** map position index to array of strings connected to that position */
     springsConnectedTo: number[][];
     /** velocities of dynamic positions */
-    velocities: MATH_MATRIX.Vector;
+    velocities: MATH.Vector;
     /** whether position is fixed or not */
     isFixed: boolean[] = [];
 
@@ -43,9 +42,9 @@ namespace SPRING_SIMULALTOR {
       public groundHeight = 0,
       public constantOfRestitution = 0.9
     ) {
-      this.positions = new MATH_MATRIX.Vector(positions);
-      this.mass3 = MATH_MATRIX.Vector.zero(positions.length);
-      this.velocities = MATH_MATRIX.Vector.zero(positions.length);
+      this.positions = new MATH.Vector(positions);
+      this.mass3 = MATH.Vector.zero(positions.length);
+      this.velocities = MATH.Vector.zero(positions.length);
       for (let i = 0; i < positions.length; i++)
         for (let xyz = 0; xyz < 3; xyz++)
           this.mass3.set(3 * i + xyz, masses[i]);
@@ -94,7 +93,7 @@ namespace SPRING_SIMULALTOR {
       this.handleCollisions();
     }
 
-    private energy(positions: MATH_MATRIX.Vector): number {
+    private energy(positions: MATH.Vector): number {
       const kineticEergy = PHYSICS_KINETIC.energyGain(
         positions,
         this.positions,
@@ -129,8 +128,8 @@ namespace SPRING_SIMULALTOR {
         : spring.originIndex;
     }
 
-    getPosition(index: number, of?: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
-      return new MATH_MATRIX.Vector([
+    getPosition(index: number, of?: MATH.Vector): MATH.Vector {
+      return new MATH.Vector([
         (of ?? this.positions)._(index * 3),
         (of ?? this.positions)._(index * 3 + 1),
         (of ?? this.positions)._(index * 3 + 2),
@@ -143,8 +142,8 @@ namespace SPRING_SIMULALTOR {
       );
     }
 
-    private gradient(positions: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
-      const gradient = MATH_MATRIX.Vector.zero(this.positions.height);
+    private gradient(positions: MATH.Vector): MATH.Vector {
+      const gradient = MATH.Vector.zero(this.positions.height);
       const kineticGradient = PHYSICS_KINETIC.gradientEnergyGain(
         positions,
         this.positions,
@@ -158,12 +157,12 @@ namespace SPRING_SIMULALTOR {
         positionIndex++
       ) {
         const position = this.getPosition(positionIndex, positions);
-        const gravitationalGradient = new MATH_MATRIX.Vector([
+        const gravitationalGradient = new MATH.Vector([
           0,
           0,
           this.mass3._(positionIndex * 3) * gravityAccelaration,
         ]);
-        const springGradient = MATH_MATRIX.Vector.zero(3);
+        const springGradient = MATH.Vector.zero(3);
         for (let spring of this.getSpringsConnectedToPosition(positionIndex)) {
           const connectedEndpointIndex = this.getConnectedEndpointTo(
             positionIndex,
@@ -201,7 +200,7 @@ namespace SPRING_SIMULALTOR {
       }
     }
 
-    private hessian(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {
+    private hessian(positions: MATH.Vector): MATH.Matrix {
       const kineticHessian = PHYSICS_KINETIC.hessianEnergyGain(
         timestep,
         this.mass3
@@ -210,13 +209,8 @@ namespace SPRING_SIMULALTOR {
       return kineticHessian.add(springHessian);
     }
 
-    private getHessianOfSpringEnergy(
-      positions: MATH_MATRIX.Vector
-    ): MATH_MATRIX.Matrix {
-      const hessian = MATH_MATRIX.Matrix.zero(
-        positions.height,
-        positions.height
-      );
+    private getHessianOfSpringEnergy(positions: MATH.Vector): MATH.Matrix {
+      const hessian = MATH.Matrix.zero(positions.height, positions.height);
       for (
         let positionIndex = 0;
         positionIndex < positions.height / 3;
@@ -261,7 +255,7 @@ namespace SPRING_SIMULALTOR {
       return hessian;
     }
 
-    private unmoveFixedPoints(previousPositions: MATH_MATRIX.Vector): void {
+    private unmoveFixedPoints(previousPositions: MATH.Vector): void {
       for (let i = 0; i < this.positions.height / 3; i++)
         for (let xyz = 0; xyz < 3; xyz++)
           if (this.isFixed[i])

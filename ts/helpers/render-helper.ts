@@ -60,11 +60,16 @@ namespace RENDER_HELPER {
     spotLight2.position.set(-20, -10, -5);
     scene.add(spotLight2);
   }
-  export function addBall(x: number, y: number, z: number): THREE.Mesh {
+  export function addBall(
+    x: number,
+    y: number,
+    z: number,
+    color = 0xffff00
+  ): THREE.Mesh {
     // ball
     const geometry = new THREE.SphereGeometry(1, 32, 16);
     const material = new THREE.MeshPhongMaterial({
-      color: 0xffff00,
+      color,
       specular: 0xbcbcbc,
     });
     const sphere = new THREE.Mesh(geometry, material);

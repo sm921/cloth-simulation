@@ -10,7 +10,7 @@
 	"reference matrix": {
 		"prefix": "rmat",
 		"body": [
-			"/// <reference path=\"../helpers/math/matrix.ts\" />",
+			"/// <reference path=\"../helpers/math/math.ts\" />",
 			"$2"
 		],
 		"description": "add reference"

@@ -1,4 +1,4 @@
-/// <reference path="../math/matrix.ts" />
+/// <reference path="../math/math.ts" />
 
 namespace PHYSICS_KINETIC {
   /**
@@ -11,11 +11,11 @@ namespace PHYSICS_KINETIC {
    * @param mass
    */
   export function energyGain(
-    newPositions: MATH_MATRIX.Vector,
-    currentPositions: MATH_MATRIX.Vector,
-    velocity: MATH_MATRIX.Vector,
+    newPositions: MATH.Vector,
+    currentPositions: MATH.Vector,
+    velocity: MATH.Vector,
     timestep: number,
-    mass: MATH_MATRIX.Vector
+    mass: MATH.Vector
   ) {
     const diff = newPositions
       .subtractNew(currentPositions)
@@ -34,12 +34,12 @@ namespace PHYSICS_KINETIC {
    * @param mass
    */
   export function gradientEnergyGain(
-    newPositions: MATH_MATRIX.Vector,
-    currentPositions: MATH_MATRIX.Vector,
-    velocity: MATH_MATRIX.Vector,
+    newPositions: MATH.Vector,
+    currentPositions: MATH.Vector,
+    velocity: MATH.Vector,
     timestep: number,
-    mass: MATH_MATRIX.Vector
-  ): MATH_MATRIX.Vector {
+    mass: MATH.Vector
+  ): MATH.Vector {
     return newPositions
       .subtractNew(currentPositions)
       .subtract(velocity.multiplyScalarNew(timestep))
@@ -55,9 +55,9 @@ namespace PHYSICS_KINETIC {
    */
   export function hessianEnergyGain(
     timestep: number,
-    mass: MATH_MATRIX.Vector
-  ): MATH_MATRIX.Matrix {
-    const hessian = MATH_MATRIX.Matrix.zero(mass.height, mass.height);
+    mass: MATH.Vector
+  ): MATH.Matrix {
+    const hessian = MATH.Matrix.zero(mass.height, mass.height);
     const invTimestepSquared = 1 / timestep / timestep;
     for (let i = 0; i < hessian.height; i++)
       hessian.set(i, i, mass._(i) * invTimestepSquared);

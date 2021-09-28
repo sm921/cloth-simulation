@@ -1,4 +1,4 @@
-namespace MATH_MATRIX {
+namespace MATH {
   export class Matrix {
     elements: Float32Array;
 
@@ -60,6 +60,18 @@ namespace MATH_MATRIX {
     }
 
     /**
+     * get column vector
+     * @param columnIndex
+     * @returns
+     */
+    columnVector(columnIndex: number): Vector {
+      const columnVector = Vector.zero(this.height);
+      for (let i = 0; i < columnVector.height; i++)
+        columnVector.set(i, this._(i, columnIndex));
+      return columnVector;
+    }
+
+    /**
      * set 0 to all elemtns of a row
      */
     clearRow(rowIndex: number): this {
@@ -113,12 +125,12 @@ namespace MATH_MATRIX {
 
     /**
      *  get Identity matrix
-     * @param width
+     * @param size
      * @returns
      */
-    static identity(width: number): Matrix {
-      const zero = Matrix.zero(width, width);
-      for (let diagonalIndex = 0; diagonalIndex < width; diagonalIndex++)
+    static identity(size: number): Matrix {
+      const zero = Matrix.zero(size, size);
+      for (let diagonalIndex = 0; diagonalIndex < size; diagonalIndex++)
         zero.elements[zero.getFlatArrayIndex(diagonalIndex, diagonalIndex)] = 1;
       return zero;
     }
@@ -133,7 +145,7 @@ namespace MATH_MATRIX {
      * @param height
      * @returns
      */
-    static zero(width: number, height: number): Matrix {
+    static zero(height: number, width: number): Matrix {
       return new Matrix(
         new Float32Array(width * height), // zeros
         width,
@@ -235,7 +247,7 @@ namespace MATH_MATRIX {
     }
 
     transpose(): Matrix {
-      const t = Matrix.zero(this.height, this.width);
+      const t = Matrix.zero(this.width, this.height);
       for (let row = 0; row < t.height; row++)
         for (let column = 0; column < t.width; column++)
           t.set(row, column, this._(column, row));
@@ -284,322 +296,6 @@ namespace MATH_MATRIX {
         this.elements[this.getFlatArrayIndex(rowI, column)] -=
           this.elements[this.getFlatArrayIndex(rowJ, column)] * multipliedByA;
       }
-    }
-  }
-
-  export class Vector extends Matrix {
-    constructor(elements: Float32Array | number[]) {
-      super(elements, 1, elements.length);
-    }
-
-    override _(index: number): number {
-      return this.elements[index];
-    }
-
-    override add(vec: Vector): this {
-      for (let i = 0; i < this.elements.length; i++)
-        this.elements[i] += vec.elements[i];
-      return this;
-    }
-    override addNew(vec: Vector): Vector {
-      return this.clone().add(vec);
-    }
-
-    override clone(): Vector {
-      return new Vector(new Float32Array(this.elements));
-    }
-
-    dot(vec: Vector): number {
-      let sum = 0;
-      for (let i = 0; i < this.elements.length; i++)
-        sum += this._(i) * vec._(i);
-      return sum;
-    }
-
-    multiplyScalar(scalar: number): this {
-      for (let i = 0; i < this.elements.length; i++) this.elements[i] *= scalar;
-      return this;
-    }
-    multiplyScalarNew(scalar: number): Vector {
-      const product = this.clone();
-      for (let i = 0; i < this.elements.length; i++)
-        product.elements[i] *= scalar;
-      return product;
-    }
-    /** column vec x row vec */
-    multiplyVector(vec: Vector): Matrix {
-      const product = Matrix.zero(this.height, vec.width);
-      for (let row = 0; row < product.width; row++)
-        for (let column = 0; column < product.width; column++)
-          product.set(row, column, this._(row) * vec._(column));
-      return product;
-    }
-    multiplyElementwise(vec: Vector): this {
-      for (let i = 0; i < this.elements.length; i++)
-        this.set(i, this._(i) * vec._(i));
-      return this;
-    }
-    multiplyElementwiseNew(vec: Vector): Vector {
-      return this.clone().multiplyElementwise(vec);
-    }
-    /** return Ax */
-    multiplyMatrix(matrix: Matrix): Vector {
-      const product = Vector.zero(matrix.height);
-      for (let row = 0; row < product.height; row++)
-        for (let column = 0; column < matrix.width; column++)
-          product.elements[row] += matrix._(row, column) * this._(column);
-      return product;
-    }
-    /**
-     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
-     */
-    override multiply(by: Matrix | number): Vector {
-      return super.multiply(by) as Vector;
-    }
-    /**
-     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
-     */
-    override multiplyNew(by: Matrix | number): Vector {
-      return super.multiplyNew(by) as Vector;
-    }
-
-    override subtract(vec: Vector): this {
-      for (let i = 0; i < this.elements.length; i++)
-        this.elements[i] -= vec.elements[i];
-      return this;
-    }
-    override subtractNew(vec: Vector): Vector {
-      return this.clone().subtract(vec);
-    }
-
-    /**
-     * (x1*x1 + x2*x2 + ... + xn*xn)^1/2
-     * @returns
-     */
-    norm(): number {
-      return Math.sqrt(this.squaredNorm());
-    }
-
-    /**
-     * (x1*x1 + x2*x2 + ... + xn*xn)
-     * @returns
-     */
-    squaredNorm(): number {
-      let sum = 0;
-      for (let i = 0; i < this.elements.length; i++)
-        sum += this._(i) * this._(i);
-      return sum;
-    }
-
-    override set(index: number, element: number): void {
-      this.elements[index] = element;
-    }
-
-    override transpose(): this {
-      [this.width, this.height] = [this.height, this.width];
-      return this;
-    }
-
-    transposeNew(): Vector {
-      const clone = this.clone();
-      return (clone as Vector).transpose();
-    }
-
-    static override zero(size: number): Vector {
-      return new Vector(new Float32Array(size));
-    }
-  }
-
-  /**
-   * lu decomposition
-   * @param matrix
-   * @returns [L, U] L is lower triangle matrix, U is upper
-   */
-  export function lu(matrix: Matrix): [Matrix, Matrix] | [null, null] {
-    if (!matrix.isSquare()) return [null, null];
-    /*
-      Algorithm https://learn.lboro.ac.uk/archive/olmp/olmp_resources/pages/workbooks_1_50_jan2008/Workbook30/30_3_lu_decmp.pdf
-      find LU = A (nxn matrix), P = 0 (zero vector of n dimension)
-        calculate row by row 
-            find L and U of row i
-                1. find L(i,j) (1 <= j < i)
-                    L(i,j) = 1/U(j,j) * { A(i,j) - Sigma_k (L(i,k) * U(k,i-1)) }     (sigma's k is in [1,j-2] )
-                and L(i,i) = 1
-                2. find U(i,j) (i <= j <= n)
-                        U(i,j) = A(i,j) - Sigma_k (L(i,k) * U(k,j)) (sigma's k is in [1,i-1])
-                        if i = j and U(i,j) = 0 then return null
-      */
-    const [L, U] = [
-      Matrix.zero(matrix.width, matrix.height),
-      Matrix.zero(matrix.width, matrix.height),
-    ];
-    // find L(i,j) and U(i,j) row by row
-    for (let row = 0; row < matrix.height; row++) {
-      // find L(i,j)
-      for (let column = 0; column < row; column++) {
-        let sigma = 0;
-        for (let k = 0; k < column; k++) sigma += L._(row, k) * U._(k, row - 1);
-        L.set(
-          row,
-          column,
-          (matrix._(row, column) - sigma) / U._(column, column)
-        );
-      }
-      // L(i,i)=1
-      L.set(row, row, 1);
-      // find U(i,j)
-      for (let column = row; column < matrix.width; column++) {
-        let sigma = 0;
-        for (let k = 0; k < row; k++) sigma += L._(row, k) * U._(k, column);
-        const u = matrix._(row, column) - sigma;
-        U.set(row, column, u);
-        if (row === column && u === 0) return [null, null];
-      }
-    }
-    return [L, U];
-  }
-
-  /**
-   * decompose matrix to A = LL^t (L is lower triangle matrix)
-   * @param matrix
-   * @returns L (or null if matrix is not positive definite)
-   */
-  export function cholesky(matrix: Matrix): Matrix | null {
-    if (!matrix.isSquare()) return null;
-    const L = Matrix.zero(matrix.width, matrix.width);
-    /*
-      L(i,j) =
-        if j < i
-          (A(i,j) - Sigma_k(L(i,k)*L(k,j))) / L(j,j) (0<=k<j)
-        if j = i
-          root( A(i,i) - Sigm_k(L(i,k)^2 ) (0<=k<j)
-    */
-    for (let i = 0; i < L.height; i++) {
-      for (let j = 0; j < i; j++) {
-        let sigma = 0;
-        for (let k = 0; k < j; k++) sigma += L._(i, k) * L._(j, k);
-        const L_jj = L._(j, j);
-        if (L_jj === 0) return null;
-        L.set(i, j, (matrix._(i, j) - sigma) / L_jj);
-      }
-      let sigma = 0;
-      for (let k = 0; k < i; k++) sigma += L._(i, k) * L._(i, k);
-      const diff = matrix._(i, i) - sigma;
-      if (diff <= 0) return null;
-      L.set(i, i, Math.sqrt(diff));
-    }
-    return L;
-  }
-
-  /**
-   * Apply hessian modification to a matrix so that the matrix is positive definite by adding mulltiple of an identity matrix
-   * @param matrix
-   * @param firstNonZeroShift default value of tau
-   * @returns
-   */
-  export function hessianModification(
-    matrix: Matrix,
-    firstNonZeroShift = 1e-3,
-    step = 2
-  ): Matrix {
-    if (!matrix.isSquare()) return matrix;
-
-    let minDiagonalElements = matrix._(0, 0);
-    for (let i = 0; i < matrix.width; i++)
-      minDiagonalElements = Math.min(minDiagonalElements, matrix._(0, 0));
-    let tau =
-      minDiagonalElements > 0 ? 0 : -minDiagonalElements + firstNonZeroShift;
-    while (true) {
-      // add multiple of identity matrix
-      if (tau !== 0)
-        for (let i = 0; i < matrix.height; i++) matrix.set(i, i, tau);
-      const L = cholesky(matrix);
-      if (L !== null) return L;
-      tau = Math.max(step * tau, firstNonZeroShift);
-    }
-  }
-
-  /**
-   * solve linear system Ax = b
-   */
-  export class Solver {
-    /**
-     * sole Ax = b by LU decomposition
-     * @param A
-     * @param b
-     * @returns x as vector
-     */
-    static lu(A: Matrix, b: Float32Array | number[]): Float32Array | null {
-      /*
-      Algorithm
-        Ax = b
-        Let LU = A (L is lower triangle and U is upper)
-        then LUx = b
-        hence, solving Ax = b is equivalent to solve Ly = b and Ux = y
-          solve Ly = b
-            since L is lower triangle matrix
-              y(i) = (b(i) - Sigma_k (L(i,k)*y(k))) / L(i,i)  (0<=k<i)
-          solve Ux = y in the same manner
-            since U is upper triangle matrix
-              x(i) = (y(i) - Sigma_k (U(i,k)*x(k))) / U(i,i) (i<k<=n)
-      */
-      const [L, U] = lu(A);
-      if (L === null || U === null) return null;
-      // solve Ly = b
-      const y = new Float32Array(L.height);
-      for (let i = 0; i < y.length; i++) {
-        let sigma = 0;
-        for (let k = 0; k < i; k++) sigma += L._(i, k) * y[k];
-        y[i] = (b[i] - sigma) / L._(i, i);
-      }
-      // slve Ux = y
-      const x = new Float32Array(U.height);
-      for (let i = x.length - 1; i >= 0; i--) {
-        let sigma = 0;
-        for (let k = i + 1; k <= x.length - 1; k++) sigma += U._(i, k) * x[k];
-        x[i] = (y[i] - sigma) / U._(i, i);
-      }
-      return x;
-    }
-
-    /**
-     * solve Ax = b using cholesky decomposition
-     *
-     * return null if cholesky decomposition does not exist
-     * @param AorL
-     * @param b
-     * @param skipsDecomposition set trure if AorL is L
-     * @returns
-     */
-    static cholesky(
-      AorL: Matrix,
-      b: Float32Array | number[],
-      skipsDecomposition?: boolean
-    ): Float32Array | null {
-      const L = skipsDecomposition ? AorL : cholesky(AorL);
-      if (L === null) return null;
-      /*
-      
-      Ax = b
-      A = L*L' then LL'x = b
-      substituting L'x with y, Ly = b and L'x = y
-      solve Ly = b by forward substitution and L'x = y in backward substitution
-        y(i) = (b(i) - Sigma_k(L(i,k)*y(k)) / L(i,i)  (0<=k<i)
-        x(i) = (y(i) - Sigma_k(L'(i,k)*x(k)) / L'(i,i)  (i<k<=n)
-      */
-      const y = new Float32Array(b.length);
-      for (let i = 0; i < y.length; i++) {
-        let sigma = 0;
-        for (let k = 0; k < i; k++) sigma += L._(i, k) * y[k];
-        y[i] = (b[i] - sigma) / L._(i, i);
-      }
-      const x = new Float32Array(b.length);
-      for (let i = x.length - 1; i >= 0; i--) {
-        let sigma = 0;
-        for (let k = x.length - 1; k > i; k--) sigma += L._(k, i) * x[k];
-        x[i] = (y[i] - sigma) / L._(i, i);
-      }
-      return x;
     }
   }
 }

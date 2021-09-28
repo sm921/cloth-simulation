@@ -1,8 +1,8 @@
 /// <reference path="spring.ts" />
 
 namespace SPRINGTEST {
-  const p1 = new MATH_MATRIX.Vector([0, 0, 0]);
-  const p2 = new MATH_MATRIX.Vector([5, 0, 0]);
+  const p1 = new MATH.Vector([0, 0, 0]);
+  const p2 = new MATH.Vector([5, 0, 0]);
   const restlength = 5;
   const springConstant = 1;
   describe("spring", () => {

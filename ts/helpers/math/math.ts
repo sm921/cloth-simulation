@@ -1,21 +1,7 @@
-namespace MATH {
-  export function arrayOf(value: number, size: number): number[] {
-    return [...Array(size)].map((_) => value);
-  }
-
-  export function sigma(
-    from: number,
-    to: number,
-    fn: (k: number) => number
-  ): number {
-    let sum = 0;
-    for (let i = from; i < to; i++) {
-      sum += fn(i);
-    }
-    return sum;
-  }
-
-  export function range(size: number, from = 0, step = 1): number[] {
-    return [...Array(size)].map((_, i) => from + i * step);
-  }
-}
+/// <reference path="matrix.ts" />
+/// <reference path="matrix-decomposition.ts" />
+/// <reference path="matrix-modification.ts" />
+/// <reference path="other.ts" />
+/// <reference path="solver.ts" />
+/// <reference path="vector.ts" />
+/// <reference path="matrix-eigen.ts" />

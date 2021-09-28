@@ -1,6 +1,5 @@
 /// <reference path="../helpers/ui.ts" />
 /// <reference path="cloth-render.ts" />
-
 /// <reference path="../helpers/ui.ts" />
 /// <reference path="cloth-render.ts" />
 /// <reference path="../spring/spring-render.ts" />

@@ -1,4 +1,4 @@
-/// <reference path="../math/matrix.ts" />
+/// <reference path="../math/math.ts" />
 
 namespace PHYSICS_SPRING {
   /**
@@ -10,8 +10,8 @@ namespace PHYSICS_SPRING {
    * @returns
    */
   export function energy(
-    point1: MATH_MATRIX.Vector,
-    point2: MATH_MATRIX.Vector,
+    point1: MATH.Vector,
+    point2: MATH.Vector,
     restlength: number,
     springConstant: number
   ): number {
@@ -28,11 +28,11 @@ namespace PHYSICS_SPRING {
    * @returns
    */
   export function energyGradient(
-    point1: MATH_MATRIX.Vector,
-    point2: MATH_MATRIX.Vector,
+    point1: MATH.Vector,
+    point2: MATH.Vector,
     restlength: number,
     springConstant: number
-  ): MATH_MATRIX.Vector {
+  ): MATH.Vector {
     const vectorFromP2ToP1 = point1.subtractNew(point2);
     return vectorFromP2ToP1.multiplyScalar(
       springConstant * (1 - restlength / vectorFromP2ToP1.norm())
@@ -48,12 +48,12 @@ namespace PHYSICS_SPRING {
    * @returns
    */
   export function energyHessian(
-    point1: MATH_MATRIX.Vector,
-    point2: MATH_MATRIX.Vector,
+    point1: MATH.Vector,
+    point2: MATH.Vector,
     restlength: number,
     springConstant: number
-  ): MATH_MATRIX.Matrix {
-    const identity = MATH_MATRIX.Matrix.identity(3);
+  ): MATH.Matrix {
+    const identity = MATH.Matrix.identity(3);
     const vectorFromP2ToP1 = point1.subtractNew(point2);
     const squaredNorm = vectorFromP2ToP1.squaredNorm();
     return identity

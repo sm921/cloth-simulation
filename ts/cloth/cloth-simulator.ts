@@ -1,6 +1,7 @@
-/// <reference path="../helpers/math/matrix.ts" />
+/// <reference path="../helpers/math/math.ts" />
 /// <reference path="../helpers/math/math.ts" />
 /// <reference path="../helpers/algorithm/descent-method.ts" />
+/// <reference path="../helpers/algorithm/multigrid.ts" />
 /// <reference path="../@types/index.d.ts" />
 /// <reference path="../helpers/physics/spring.ts" />
 /// <reference path="../helpers/physics/kinetic.ts" />
@@ -20,16 +21,18 @@ namespace CLOTH_SIMULATOR {
    * not the most accurate but relatively simple simulation of springs in this project
    */
   export class Simulator {
-    positions: MATH_MATRIX.Vector;
+    positions: MATH.Vector;
     /** masses of positions */
-    mass3: MATH_MATRIX.Vector;
+    mass3: MATH.Vector;
     springs: Spring[] = [];
     /** map position index to array of strings connected to that position */
     springsConnectedTo: number[][];
     /** velocities of dynamic positions */
-    velocities: MATH_MATRIX.Vector;
+    velocities: MATH.Vector;
     /** whether position is fixed or not */
     isFixed: boolean[] = [];
+
+    grids: number[][];
 
     constructor(
       positions: number[],
@@ -44,9 +47,14 @@ namespace CLOTH_SIMULATOR {
       public constantOfRestitution = 0.9,
       public usesProjectiveDynamics = false
     ) {
-      this.positions = new MATH_MATRIX.Vector(positions);
-      this.mass3 = MATH_MATRIX.Vector.zero(positions.length);
-      this.velocities = MATH_MATRIX.Vector.zero(positions.length);
+      const [grids, interpolatinos, restrictions] = MULTIGRID.build(
+        positions,
+        2
+      );
+      this.grids = grids;
+      this.positions = new MATH.Vector(positions);
+      this.mass3 = MATH.Vector.zero(positions.length);
+      this.velocities = MATH.Vector.zero(positions.length);
       for (let i = 0; i < positions.length; i++)
         for (let xyz = 0; xyz < 3; xyz++)
           this.mass3.set(3 * i + xyz, masses[i]);
@@ -77,7 +85,6 @@ namespace CLOTH_SIMULATOR {
           this.springsConnectedTo[endpointIndex].push(springIndex);
         });
       }
-      this.prefactorMatricesForProjectiveDynamics();
     }
 
     simulate(): void {
@@ -98,7 +105,7 @@ namespace CLOTH_SIMULATOR {
       this.handleCollisions();
     }
 
-    private energy(positions: MATH_MATRIX.Vector): number {
+    private energy(positions: MATH.Vector): number {
       const kineticEergy = PHYSICS_KINETIC.energyGain(
         positions,
         this.positions,
@@ -133,8 +140,8 @@ namespace CLOTH_SIMULATOR {
         : spring.originIndex;
     }
 
-    getPosition(index: number, of?: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
-      return new MATH_MATRIX.Vector([
+    getPosition(index: number, of?: MATH.Vector): MATH.Vector {
+      return new MATH.Vector([
         (of ?? this.positions)._(index * 3),
         (of ?? this.positions)._(index * 3 + 1),
         (of ?? this.positions)._(index * 3 + 2),
@@ -147,8 +154,8 @@ namespace CLOTH_SIMULATOR {
       );
     }
 
-    private gradient(positions: MATH_MATRIX.Vector): MATH_MATRIX.Vector {
-      const gradient = MATH_MATRIX.Vector.zero(this.positions.height);
+    private gradient(positions: MATH.Vector): MATH.Vector {
+      const gradient = MATH.Vector.zero(this.positions.height);
       const kineticGradient = PHYSICS_KINETIC.gradientEnergyGain(
         positions,
         this.positions,
@@ -162,12 +169,12 @@ namespace CLOTH_SIMULATOR {
         positionIndex++
       ) {
         const position = this.getPosition(positionIndex, positions);
-        const gravitationalGradient = new MATH_MATRIX.Vector([
+        const gravitationalGradient = new MATH.Vector([
           0,
           0,
           this.mass3._(positionIndex * 3) * gravityAccelaration,
         ]);
-        const springGradient = MATH_MATRIX.Vector.zero(3);
+        const springGradient = MATH.Vector.zero(3);
         for (let spring of this.getSpringsConnectedToPosition(positionIndex)) {
           const connectedEndpointIndex = this.getConnectedEndpointTo(
             positionIndex,
@@ -205,7 +212,7 @@ namespace CLOTH_SIMULATOR {
       }
     }
 
-    private hessian(positions: MATH_MATRIX.Vector): MATH_MATRIX.Matrix {
+    private hessian(positions: MATH.Vector): MATH.Matrix {
       const kineticHessian = PHYSICS_KINETIC.hessianEnergyGain(
         timestep,
         this.mass3
@@ -214,13 +221,8 @@ namespace CLOTH_SIMULATOR {
       return kineticHessian.add(springHessian);
     }
 
-    private getHessianOfSpringEnergy(
-      positions: MATH_MATRIX.Vector
-    ): MATH_MATRIX.Matrix {
-      const hessian = MATH_MATRIX.Matrix.zero(
-        positions.height,
-        positions.height
-      );
+    private getHessianOfSpringEnergy(positions: MATH.Vector): MATH.Matrix {
+      const hessian = MATH.Matrix.zero(positions.height, positions.height);
       for (
         let positionIndex = 0;
         positionIndex < positions.height / 3;
@@ -265,7 +267,7 @@ namespace CLOTH_SIMULATOR {
       return hessian;
     }
 
-    private unmoveFixedPoints(previousPositions: MATH_MATRIX.Vector): void {
+    private unmoveFixedPoints(previousPositions: MATH.Vector): void {
       for (let i = 0; i < this.positions.height / 3; i++)
         for (let xyz = 0; xyz < 3; xyz++)
           if (this.isFixed[i])
@@ -275,19 +277,19 @@ namespace CLOTH_SIMULATOR {
     /**
      * 3nx3n constant matrix
      * mass matrix multiplied by 1/h^2 */
-    private Mh2!: MATH_MATRIX.Matrix;
+    private Mh2!: MATH.Matrix;
     /** 3nx3n constant matrix (lower triangle positive definite)
      * L' = M/h^2 + Sigma_i (k_i * S_i^t A_i^t A_i S_i)
      * L = modify L' so that L is positive definite and let L be L'^t L'
      * see LHS of exp 10 in the paper
      */
-    private L!: MATH_MATRIX.Matrix;
+    private L!: MATH.Matrix;
     /**
      * 3nx3 constant matrix
      * Sigma_i (k_i S_i^t A_i^t B_i)
      * see RHS of exp 10 in the paper
      */
-    private kSAB: MATH_MATRIX.Matrix[] = [];
+    private kSAB: MATH.Matrix[] = [];
 
     private updateByProjectiveDynamics(): void {
       if (this.Mh2 === undefined) this.prefactorMatricesForProjectiveDynamics();
@@ -298,23 +300,20 @@ namespace CLOTH_SIMULATOR {
     // projective dynamics. for detail read section 3.3 of https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
     private prefactorMatricesForProjectiveDynamics(): void {
       /** 3n x 3n matrix (mass matrix devided by timestep^2) */
-      this.Mh2 = MATH_MATRIX.Matrix.zero(
-        this.positions.height,
-        this.positions.height
-      );
+      this.Mh2 = MATH.Matrix.zero(this.positions.height, this.positions.height);
       for (let i = 0; i < this.Mh2.height; i++)
         this.Mh2.set(i, i, this.mass3._(i) / timestep / timestep);
       this.L = this.Mh2.clone();
       for (let spring of this.springs) {
         const k_i = spring.springConstant;
         /** 3x3n selection matrix of endpoints of an i th spring (see exp 10 in the paper)*/
-        const S_i = MATH_MATRIX.Matrix.zero(this.positions.height, 3);
+        const S_i = MATH.Matrix.zero(3, this.positions.height);
         for (let xyz of [0, 1, 2]) {
           S_i.set(xyz, spring.originIndex * 3 + xyz, 1);
           S_i.set(xyz, spring.endIndex * 3 + xyz, -1);
         }
         /** 3x3 linear map matrix of endpoints of an i th spring  (see exp 10 in the paper)*/
-        const A_i = new MATH_MATRIX.Matrix(0.5, 3, 3);
+        const A_i = new MATH.Matrix(0.5, 3, 3);
         /** 3x3 linear map matrix of auxiliary poiint of an i th spring  (see exp 10 in the paper)*/
         const B_i = A_i.clone();
         this.L.add(
@@ -328,14 +327,14 @@ namespace CLOTH_SIMULATOR {
           S_i.transpose().multiply(A_i.transpose()).multiply(B_i).multiply(k_i)
         );
       }
-      this.L = MATH_MATRIX.hessianModification(this.L); // cholesky decomposition with modification
+      this.L = MATH.hessianModification(this.L); // cholesky decomposition with modification
     }
     /** solve p_i for all springs (see exp 10 in the paper)
      * paper https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
      */
-    private localSolve(): MATH_MATRIX.Vector[] {
+    private localSolve(): MATH.Vector[] {
       /* minimizing p is achieved by making p restlength vectors in directions of springs */
-      const p: MATH_MATRIX.Vector[] = [];
+      const p: MATH.Vector[] = [];
       for (let spring of this.springs) {
         const [[x1, y1, z1], [x2, y2, z2]] = [
           spring.originIndex,
@@ -343,11 +342,7 @@ namespace CLOTH_SIMULATOR {
         ].map((springIndex) =>
           [0, 1, 2].map((xyz) => this.positions._(springIndex * 3 + xyz))
         );
-        const springVector = new MATH_MATRIX.Vector([
-          x1 - x2,
-          y1 - y2,
-          z1 - z2,
-        ]);
+        const springVector = new MATH.Vector([x1 - x2, y1 - y2, z1 - z2]);
         p.push(
           springVector.multiplyScalar(spring.restlength / springVector.norm())
         );
@@ -359,16 +354,14 @@ namespace CLOTH_SIMULATOR {
      * paper https://www.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf
      */
     private globalSolve(): void {
-      const g = MATH_MATRIX.Vector.zero(this.positions.height);
+      const g = MATH.Vector.zero(this.positions.height);
       for (let i = 0; i < g.height / 3; i++)
         g.set(3 * i + 2, -gravityAccelaration * this.mass3._(3 * i));
       // update q to sn (= qn + hvn + h^2M^-1fext)
       const sn = this.positions
         .add(this.velocities.multiplyScalarNew(timestep))
         .add(
-          (this.Mh2.inverseNew() as MATH_MATRIX.Matrix).multiplyNew(
-            g
-          ) as MATH_MATRIX.Vector
+          (this.Mh2.inverseNew() as MATH.Matrix).multiplyNew(g) as MATH.Vector
         );
       // set MH2 sn
       const Mh2SnAddedBySigmakSABp = this.Mh2.multiplyNew(sn);
@@ -378,11 +371,8 @@ namespace CLOTH_SIMULATOR {
       for (let i = 0; i < p.length; i++)
         Mh2SnAddedBySigmakSABp.add(this.kSAB[i].multiplyNew(p[i]));
       this.positions.elements =
-        MATH_MATRIX.Solver.cholesky(
-          this.L,
-          Mh2SnAddedBySigmakSABp.elements,
-          true
-        ) ?? this.positions.elements;
+        MATH.Solver.cholesky(this.L, Mh2SnAddedBySigmakSABp.elements, true) ??
+        this.positions.elements;
     }
   }
 }

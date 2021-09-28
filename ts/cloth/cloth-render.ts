@@ -119,8 +119,22 @@ namespace CLOTH_RENDER {
       const [origin, end] = [spring.originIndex, spring.endIndex].map(
         (endpoint) => simulator.getPosition(endpoint).elements
       );
-      balls.push(RENDER_HELPER.addBall(origin[0], origin[1], origin[2]));
-      balls.push(RENDER_HELPER.addBall(end[0], end[1], end[2]));
+      balls.push(
+        RENDER_HELPER.addBall(
+          origin[0],
+          origin[1],
+          origin[2],
+          simulator.grids[2].includes(spring.originIndex) ? 0xff0000 : 0x0000ff
+        )
+      );
+      balls.push(
+        RENDER_HELPER.addBall(
+          end[0],
+          end[1],
+          end[2],
+          simulator.grids[2].includes(spring.endIndex) ? 0xff0000 : 0x0000ff
+        )
+      );
       lines.push(
         RENDER_HELPER.addLine(
           [origin[0], origin[1], origin[2]],

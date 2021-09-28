@@ -1,3 +1,5 @@
+/// <reference path="../math/math.ts" />
+
 /**
  * calculate optimal stepsize of line search of any multivariable functions
  */
@@ -214,8 +216,8 @@ namespace LINE_SEARCH {
     const [dfdx_p, fp, fq] = [dfdx(p), f(p), f(q)];
     if (p === 0) return (-dfdx_p * q * q) / (2 * (fq - fp - dfdx_p * q));
     else {
-      const abc = MATH_MATRIX.Solver.lu(
-        new MATH_MATRIX.Matrix([2, 1, 0, p * p, p, 1, q * q, q, 1], 3, 3),
+      const abc = MATH.Solver.lu(
+        new MATH.Matrix([2, 1, 0, p * p, p, 1, q * q, q, 1], 3, 3),
         [dfdx_p, fp, fq]
       ) as Float32Array;
       const [a, b] = [abc[0], abc[1]];

@@ -21,15 +21,15 @@ namespace DESCENT_METHOD {
    * @returns
    */
   export function updateByNewtonRaphson(
-    x: MATH_MATRIX.Vector,
-    fx: (x: MATH_MATRIX.Vector) => number,
-    gradFx: (x: MATH_MATRIX.Vector) => MATH_MATRIX.Vector,
-    hessianOfFx: (x: MATH_MATRIX.Vector) => MATH_MATRIX.Matrix,
+    x: MATH.Vector,
+    fx: (x: MATH.Vector) => number,
+    gradFx: (x: MATH.Vector) => MATH.Vector,
+    hessianOfFx: (x: MATH.Vector) => MATH.Matrix,
     simulatesInertia = false,
     triesOrthogonalDirections = 0
   ): void {
     const _H = hessianOfFx(x);
-    const H = MATH_MATRIX.hessianModification(_H);
+    const H = MATH.hessianModification(_H);
     let grad = gradFx(x)
       .multiplyScalar(-1)
       /* ############ Saddle Point Guard ##########
@@ -41,9 +41,9 @@ namespace DESCENT_METHOD {
           ? triesOrthogonalDirections
           : el
       ); // avoid converges to saddle point
-    const _pk = MATH_MATRIX.Solver.cholesky(H, grad, true);
+    const _pk = MATH.Solver.cholesky(H, grad, true);
     if (_pk === null) return;
-    const pk = new MATH_MATRIX.Vector(_pk);
+    const pk = new MATH.Vector(_pk);
     if (pk.norm() === 0) return;
     const stepsize = simulatesInertia
       ? 1
@@ -71,18 +71,18 @@ namespace DESCENT_METHOD {
    * @returns
    */
   export function _updateByNewton(
-    x: MATH_MATRIX.Vector[],
-    getHessian: (x: MATH_MATRIX.Vector[]) => MATH_MATRIX.Matrix,
-    getGradient: (x: MATH_MATRIX.Vector[]) => MATH_MATRIX.Vector,
+    x: MATH.Vector[],
+    getHessian: (x: MATH.Vector[]) => MATH.Matrix,
+    getGradient: (x: MATH.Vector[]) => MATH.Vector,
     isFixed: (index: number) => boolean,
     objectiveFuncionOfStepsize: (
       stepsize: number,
-      descentDirections: MATH_MATRIX.Vector[]
+      descentDirections: MATH.Vector[]
     ) => number,
     gradientOfObjectiveFunctionOfStepsize: (
       stepsize: number,
-      descentDirections: MATH_MATRIX.Vector[]
-    ) => MATH_MATRIX.Vector,
+      descentDirections: MATH.Vector[]
+    ) => MATH.Vector,
     tolerance = 1e-6
   ): void {
     const [descentDirection, norm] = _findDescentDirection(
@@ -106,13 +106,13 @@ namespace DESCENT_METHOD {
   }
 
   function _findDescentDirection(
-    x: MATH_MATRIX.Vector[],
-    hessian: MATH_MATRIX.Matrix,
-    gradient: MATH_MATRIX.Matrix,
+    x: MATH.Vector[],
+    hessian: MATH.Matrix,
+    gradient: MATH.Matrix,
     isFixed: (index: number) => boolean,
     tolerance = 1e-6
-  ): [MATH_MATRIX.Vector, number] | [null, null] {
-    let descentDirection = MATH_MATRIX.Solver.cholesky(
+  ): [MATH.Vector, number] | [null, null] {
+    let descentDirection = MATH.Solver.cholesky(
       hessian,
       gradient.multiplyNew(-1).elements,
       true
@@ -121,26 +121,26 @@ namespace DESCENT_METHOD {
     for (let i = 0; i < x.length; i++)
       if (isFixed(i))
         for (let j = 0; j < 3; j++) descentDirection[3 * i + j] = 0;
-    const descentDirectionsFlat = new MATH_MATRIX.Vector(descentDirection);
+    const descentDirectionsFlat = new MATH.Vector(descentDirection);
     const norm = descentDirectionsFlat.norm();
     if (norm < tolerance) return [null, null];
     return [descentDirectionsFlat, norm];
   }
 
   function _findStepsize(
-    descentDirections: MATH_MATRIX.Vector,
+    descentDirections: MATH.Vector,
     objectiveFunction: (
       stepsize: number,
-      descentDirections: MATH_MATRIX.Vector[]
+      descentDirections: MATH.Vector[]
     ) => number,
     gradientOfObjectiveFunction: (
       stepsize: number,
-      descentDirections: MATH_MATRIX.Vector[]
-    ) => MATH_MATRIX.Vector
-  ): [number, MATH_MATRIX.Vector[]] {
+      descentDirections: MATH.Vector[]
+    ) => MATH.Vector
+  ): [number, MATH.Vector[]] {
     const descentDirectionPerPosition = Array(descentDirections.height);
     for (let i = 0; i < descentDirections.height / 3; i++)
-      descentDirectionPerPosition[i] = new MATH_MATRIX.Vector([
+      descentDirectionPerPosition[i] = new MATH.Vector([
         descentDirections._(i * 3),
         descentDirections._(i * 3 + 1),
         descentDirections._(i * 3 + 2),
