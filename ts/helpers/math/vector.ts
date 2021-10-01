@@ -3,7 +3,7 @@
 namespace MATH {
   export class Vector extends Matrix {
     constructor(elements: Float32Array | number[]) {
-      super(elements, 1, elements.length);
+      super(elements, elements.length, 1);
     }
 
     override _(index: number): number {
@@ -11,12 +11,11 @@ namespace MATH {
     }
 
     override add(vec: Vector): this {
-      for (let i = 0; i < this.elements.length; i++)
-        this.elements[i] += vec.elements[i];
+      super.add(vec);
       return this;
     }
     override addNew(vec: Vector): Vector {
-      return this.clone().add(vec);
+      return super.addNew(vec) as Vector;
     }
 
     override clone(): Vector {
@@ -30,51 +29,63 @@ namespace MATH {
       return sum;
     }
 
-    multiplyScalar(scalar: number): this {
+    override kroneckerProduct(matrix: Matrix): Matrix {
+      const product = Matrix.zero(
+        this.height * matrix.height,
+        this.width * matrix.width
+      );
+      const isRowVector = this.height === 1;
+      for (let i = 0; i < this.elements.length; i++) {
+        const productBlock = matrix.multiplyScalarNew(this._(i));
+        for (
+          let rowBlockIndex = 0;
+          rowBlockIndex < productBlock.height;
+          rowBlockIndex++
+        )
+          for (
+            let columnBlockIndex = 0;
+            columnBlockIndex < productBlock.width;
+            columnBlockIndex++
+          ) {
+            product.set(
+              rowBlockIndex + (isRowVector ? 0 : i * productBlock.height),
+              columnBlockIndex + (isRowVector ? i * productBlock.width : 0),
+              productBlock._(rowBlockIndex, columnBlockIndex)
+            );
+          }
+      }
+      return product;
+    }
+
+    override multiplyScalar(scalar: number): this {
       for (let i = 0; i < this.elements.length; i++) this.elements[i] *= scalar;
       return this;
     }
-    multiplyScalarNew(scalar: number): Vector {
+
+    override multiplyScalarNew(scalar: number): Vector {
       const product = this.clone();
       for (let i = 0; i < this.elements.length; i++)
         product.elements[i] *= scalar;
       return product;
     }
+
     /** column vec x row vec */
-    multiplyVector(vec: Vector): Matrix {
+    outerProduct(vec: Vector): Matrix {
       const product = Matrix.zero(vec.width, this.height);
       for (let row = 0; row < product.width; row++)
         for (let column = 0; column < product.width; column++)
           product.set(row, column, this._(row) * vec._(column));
       return product;
     }
+
     multiplyElementwise(vec: Vector): this {
       for (let i = 0; i < this.elements.length; i++)
         this.set(i, this._(i) * vec._(i));
       return this;
     }
+
     multiplyElementwiseNew(vec: Vector): Vector {
       return this.clone().multiplyElementwise(vec);
-    }
-    /** return Ax */
-    multiplyMatrix(matrix: Matrix): Vector {
-      const product = Vector.zero(matrix.height);
-      for (let row = 0; row < product.height; row++)
-        for (let column = 0; column < matrix.width; column++)
-          product.elements[row] += matrix._(row, column) * this._(column);
-      return product;
-    }
-    /**
-     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
-     */
-    override multiply(by: Matrix | number): Vector {
-      return super.multiply(by) as Vector;
-    }
-    /**
-     * @deprecated use multiplyScalar, multiplyVector, or multiplyMatrix instead
-     */
-    override multiplyNew(by: Matrix | number): Vector {
-      return super.multiplyNew(by) as Vector;
     }
 
     static ones(size: number): Vector {
@@ -84,12 +95,10 @@ namespace MATH {
     }
 
     override subtract(vec: Vector): this {
-      for (let i = 0; i < this.elements.length; i++)
-        this.elements[i] -= vec.elements[i];
-      return this;
+      return super.subtract(vec);
     }
     override subtractNew(vec: Vector): Vector {
-      return this.clone().subtract(vec);
+      return super.subtractNew(vec) as Vector;
     }
 
     /**

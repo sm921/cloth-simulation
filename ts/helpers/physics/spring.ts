@@ -61,11 +61,11 @@ namespace PHYSICS_SPRING {
         identity
           .subtractNew(
             vectorFromP2ToP1
-              .multiplyVector(vectorFromP2ToP1.transposeNew())
-              .multiply(1 / squaredNorm)
+              .outerProduct(vectorFromP2ToP1.transposeNew())
+              .multiplyScalar(1 / squaredNorm)
           )
-          .multiply(restlength / Math.sqrt(squaredNorm))
+          .multiplyScalar(restlength / Math.sqrt(squaredNorm))
       )
-      .multiply(-springConstant);
+      .multiplyScalar(-springConstant);
   }
 }

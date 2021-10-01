@@ -114,7 +114,7 @@ namespace DESCENT_METHOD {
   ): [MATH.Vector, number] | [null, null] {
     let descentDirection = MATH.Solver.cholesky(
       hessian,
-      gradient.multiplyNew(-1).elements,
+      gradient.multiplyScalarNew(-1).elements,
       true
     );
     if (descentDirection === null) return [null, null];

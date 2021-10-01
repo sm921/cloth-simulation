@@ -23,7 +23,7 @@ namespace MATH {
             : (j === k + 1 ? A._(k + 1, k) - alpha : A._(j, k)) / (2 * r)
         );
       const P = Matrix.identity(A.height).subtract(
-        v.multiplyVector(v.transposeNew()).multiplyNew(2)
+        v.outerProduct(v.transposeNew()).multiplyScalar(2)
       );
       A = P.multiply(A).multiply(P);
     }

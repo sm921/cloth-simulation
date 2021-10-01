@@ -77,7 +77,7 @@ namespace MATH {
         }
         k++;
         if (iterationCount === undefined) {
-          if (x.multiplyMatrix(A).subtractNew(b).squaredNorm() < tolerance)
+          if (A.multiplyVector(x).subtractNew(b).squaredNorm() < tolerance)
             break;
         } else if (k > iterationCount) break;
       }
@@ -117,7 +117,7 @@ namespace MATH {
         x = x_new;
         k++;
         if (iterationCount === undefined) {
-          if (x.multiplyMatrix(A).subtractNew(b).squaredNorm() < tolerance)
+          if (A.multiplyVector(x).subtractNew(b).squaredNorm() < tolerance)
             break;
         } else if (k > iterationCount) break;
       }

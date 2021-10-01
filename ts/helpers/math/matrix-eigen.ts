@@ -90,12 +90,14 @@ namespace MATH {
   export function eigenvectorOf(A: Matrix, eigenvalue: number): Vector {
     let x = Vector.ones(A.height);
     const shift = A.subtractNew(
-      Matrix.identity(A.height).multiply(eigenvalue !== 0 ? eigenvalue : 1e-6) // approximate 0 by small number near 0
+      Matrix.identity(A.height).multiplyScalar(
+        eigenvalue !== 0 ? eigenvalue : 1e-6
+      ) // approximate 0 by small number near 0
     );
     const shiftInv = shift.inverseNew() as Matrix;
     while (true) {
-      x = x.multiplyMatrix(shiftInv).normalize();
-      if (x.multiplyMatrix(shift).squaredNorm() <= 1e-2) return x;
+      x = shiftInv.multiplyVector(x).normalize();
+      if (shift.multiplyVector(x).squaredNorm() <= 1e-2) return x;
     }
   }
 

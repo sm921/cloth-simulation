@@ -23,8 +23,8 @@ namespace MATH {
      */
     constructor(
       elements: Float32Array | number[] | number,
-      public width: number,
-      public height: number
+      public height: number,
+      public width: number
     ) {
       // elements is element
       if (typeof elements === "number") {
@@ -88,39 +88,81 @@ namespace MATH {
       );
     }
 
+    forEach(
+      callback: (rowIndex: number, columnIndex: number, element: number) => void
+    ): void {
+      for (let row = 0; row < this.height; row++)
+        for (let column = 0; column < this.width; column++)
+          callback(row, column, this._(row, column));
+    }
+
+    kroneckerProduct(matrix: Matrix): Matrix {
+      const product = Matrix.zero(
+        this.height * matrix.height,
+        this.width * matrix.width
+      );
+      for (let row = 0; row < this.height; row++)
+        for (let column = 0; column < this.width; column++) {
+          const productBlock = matrix.multiplyScalarNew(this._(row, column));
+          for (
+            let rowBlockIndex = 0;
+            rowBlockIndex < productBlock.height;
+            rowBlockIndex++
+          )
+            for (
+              let columnBlockIndex = 0;
+              columnBlockIndex < productBlock.width;
+              columnBlockIndex++
+            ) {
+              product.set(
+                rowBlockIndex + row * matrix.height,
+                columnBlockIndex + column * matrix.width,
+                productBlock._(rowBlockIndex, columnBlockIndex)
+              );
+            }
+        }
+      return product;
+    }
+
     /**
      * multiplication
      * @param anotherMattrix
      * @returns
      */
-    multiply(by: Matrix | number): Matrix {
-      if (by instanceof Matrix) {
-        const product = new Matrix(
-          new Float32Array(by.width * this.height),
-          by.width,
-          this.height
-        );
-        for (let rowIndex = 0; rowIndex < product.height; rowIndex++) {
-          for (
-            let columnIndex = 0;
-            columnIndex < product.width;
-            columnIndex++
-          ) {
-            for (let k = 0; k < this.width; k++)
-              product.elements[
-                product.getFlatArrayIndex(rowIndex, columnIndex)
-              ] += this._(rowIndex, k) * by._(k, columnIndex);
-          }
+    multiply(by: Matrix): Matrix {
+      const product = new Matrix(
+        new Float32Array(by.width * this.height),
+        this.height,
+        by.width
+      );
+      for (let rowIndex = 0; rowIndex < product.height; rowIndex++) {
+        for (let columnIndex = 0; columnIndex < product.width; columnIndex++) {
+          for (let k = 0; k < this.width; k++)
+            product.elements[
+              product.getFlatArrayIndex(rowIndex, columnIndex)
+            ] += this._(rowIndex, k) * by._(k, columnIndex);
         }
-        return product;
-      } else {
-        for (let i = 0; i < this.elements.length; i++) this.elements[i] *= by;
-        return this;
       }
+      return product;
     }
-    multiplyNew(by: Matrix | number): Matrix {
-      const clone = this.clone();
-      return clone.multiply(by);
+
+    multiplyScalar(scalar: number): this {
+      for (let i = 0; i < this.elements.length; i++) this.elements[i] *= scalar;
+      return this;
+    }
+
+    multiplyScalarNew(scalar: number): Matrix {
+      return this.clone().multiplyScalar(scalar);
+    }
+
+    multiplyVector(v: Vector): Vector {
+      const productAsMatrix = this.multiply(v);
+      const product = new Vector(productAsMatrix.elements);
+      [product.height, product.width] = [
+        productAsMatrix.height,
+        productAsMatrix.width,
+      ];
+      return product;
     }
 
     /**
@@ -148,8 +190,8 @@ namespace MATH {
     static zero(height: number, width: number): Matrix {
       return new Matrix(
         new Float32Array(width * height), // zeros
-        width,
-        height
+        height,
+        width
       );
     }
 
@@ -204,6 +246,18 @@ namespace MATH {
     inverseNew(): Matrix | null {
       const clone = this.clone();
       return clone.inverse();
+    }
+
+    /**
+     * print elemtns in console for debug
+     */
+    toString(digit = 2): string {
+      let string = "";
+      this.forEach((i, j, el) => {
+        string += `${String(el).padStart(digit, " ")} `;
+        if (j === this.width - 1) string += "\n";
+      });
+      return string;
     }
 
     /**

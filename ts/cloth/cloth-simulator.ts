@@ -32,7 +32,7 @@ namespace CLOTH_SIMULATOR {
     /** whether position is fixed or not */
     isFixed: boolean[] = [];
 
-    grids: number[][];
+    grids: Float32Array[];
 
     constructor(
       positions: number[],
@@ -324,7 +324,10 @@ namespace CLOTH_SIMULATOR {
             .multiply(k_i)
         );
         this.kSAB.push(
-          S_i.transpose().multiply(A_i.transpose()).multiply(B_i).multiply(k_i)
+          S_i.transpose()
+            .multiply(A_i.transpose())
+            .multiply(B_i)
+            .multiplyScalar(k_i)
         );
       }
       this.L = MATH.hessianModification(this.L); // cholesky decomposition with modification
@@ -361,15 +364,17 @@ namespace CLOTH_SIMULATOR {
       const sn = this.positions
         .add(this.velocities.multiplyScalarNew(timestep))
         .add(
-          (this.Mh2.inverseNew() as MATH.Matrix).multiplyNew(g) as MATH.Vector
+          (this.Mh2.inverseNew() as MATH.Matrix).multiplyVector(
+            g
+          ) as MATH.Vector
         );
       // set MH2 sn
-      const Mh2SnAddedBySigmakSABp = this.Mh2.multiplyNew(sn);
+      const Mh2SnAddedBySigmakSABp = this.Mh2.multiplyVector(sn);
       /** auxiliary points. see exp 10 in the paper */
       const p = this.localSolve();
       /** RHS of exp 10 in the paper */
       for (let i = 0; i < p.length; i++)
-        Mh2SnAddedBySigmakSABp.add(this.kSAB[i].multiplyNew(p[i]));
+        Mh2SnAddedBySigmakSABp.add(this.kSAB[i].multiplyVector(p[i]));
       this.positions.elements =
         MATH.Solver.cholesky(this.L, Mh2SnAddedBySigmakSABp.elements, true) ??
         this.positions.elements;

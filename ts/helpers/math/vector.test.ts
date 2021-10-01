@@ -1,4 +1,4 @@
-/// <reference path="vector.ts" />
+/// <reference path="matrix.test.ts" />
 
 namespace MATH {
   describe("vector", () => {
@@ -19,10 +19,8 @@ namespace MATH {
         3
       );
       const x = new Vector([1, 2, 3]);
-      expect(x.multiplyMatrix(A).elements).toEqual(
-        new Float32Array([14, 32, 50])
-      );
-      expect(A.multiplyNew(x).elements).toEqual(new Float32Array([14, 32, 50]));
+      expectElementsEqualTo(A.multiplyVector(x).elements, [14, 32, 50]);
+      expectElementsEqualTo(A.multiplyVector(x).elements, [14, 32, 50]);
     });
   });
 }
