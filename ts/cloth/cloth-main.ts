@@ -12,32 +12,30 @@ namespace CLOTH_MAIN {
     mass: 1e-2,
     fixedPoints: undefined,
     constantOfRestitution: 0.3,
-    usesProjectiveDynamics: false,
+    mode: CLOTH_SIMULATOR.Mode.Newton,
   };
-  let methodBtn: HTMLButtonElement;
 
   initUI();
   CLOTH_RENDER.render();
 
-  function showSimulationMethod(): void {
-    UI.print(
-      `now being simulated by ${
-        params.usesProjectiveDynamics
-          ? "Projective Dynamics"
-          : "Newton's method"
-      }`
-    );
-  }
-
   function initUI() {
-    UI.init("Cloth (Implicit Newton and Projective Dynamics implementation)");
-    showSimulationMethod();
+    UI.init(
+      "Cloth Simulation (Implicit Newton, Projective Dynamics, and Multigrid)"
+    );
     UI.addBtn("restart", () => restartSimulator());
-    methodBtn = UI.addBtn("switch Newton and PD", () =>
-      restartSimulator((params) => {
-        params.usesProjectiveDynamics = !params.usesProjectiveDynamics;
-        showSimulationMethod();
-      })
+    UI.addInputRadio(
+      [
+        { label: "Newton", value: CLOTH_SIMULATOR.Mode.Newton },
+        {
+          label: "Projective Dynamics",
+          value: CLOTH_SIMULATOR.Mode.ProjectiveDynamics,
+        },
+        {
+          label: "Multigrid (still in progress)",
+          value: CLOTH_SIMULATOR.Mode.Multigrid,
+        },
+      ],
+      (mode) => restartSimulator((params) => (params.mode = Number(mode)))
     );
     UI.addLinebreak();
     UI.addInputNumber("spring constant = ", 0, 100, 1, 0.1, (springConstant) =>

@@ -82,7 +82,7 @@ namespace MATH {
   }
 
   /**
-   * QR decomposition Using the Gram‚Äö√Ñ√¨Schmidt process to return [Q, R]
+   * QR decomposition Using the Gramm Schmidt process to return [Q, R]
    * @param matrix
    */
   export function qr(matrix: Matrix): [Matrix, Matrix] {

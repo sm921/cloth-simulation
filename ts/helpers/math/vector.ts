@@ -109,14 +109,16 @@ namespace MATH {
       return Math.sqrt(this.squaredNorm());
     }
     normalize(): this {
-      return this.multiplyScalar(1 / this.norm());
+      const norm = this.norm();
+      return norm === 0 ? this : this.multiplyScalar(1 / norm);
     }
     normalizeNew(): Vector {
       return this.clone().normalize();
     }
 
     projectTo(to: Vector): Vector {
-      return to.multiplyScalarNew(this.dot(to) / to.dot(to));
+      const norm2 = to.squaredNorm();
+      return norm2 === 0 ? to : to.multiplyScalarNew(this.dot(to) / norm2);
     }
 
     /**

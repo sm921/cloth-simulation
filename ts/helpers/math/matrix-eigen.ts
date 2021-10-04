@@ -40,16 +40,19 @@ namespace MATH {
    * detailed explanations and improvements https://addi.ehu.es/bitstream/handle/10810/26427/TFG_Erana_Robles_Gorka.pdf?sequence=1
    * @param A
    */
-  export function eigenvalues(A: Matrix, tolerance = 1e-2): Float32Array {
+  export function eigenvalues(A: Matrix, tolerance = 1e-2): number[] {
     if (A.height <= 2) return eigenvaluesWithoutShift(A);
     // make A hessenberg matrix for faster convergence
     let H = hessenbergReduction(A);
-    const lambda = new Float32Array(H.height);
+    const lambda: number[] = [];
     // if some rows and columns contain only zeros, then the eigenvalue is zero
     for (let row = 0; row < H.height - 1; row++)
       for (let column = 0; column < H.width; column++) {
         if (H._(row, column) !== 0) break;
-        if (column === H.width - 2) H = deflation(H, row, row);
+        if (column === H.width - 2) {
+          lambda.push(0);
+          H = deflation(H, row, row);
+        }
       }
     // QR Algorithm
     for (let m = H.height - 1; m > 1; m--) {
@@ -63,10 +66,13 @@ namespace MATH {
         const [Q, R] = qr(H.subtract(shiftI));
         H = R.multiply(Q).add(shiftI);
       } while (H._(m, m - 1) > tolerance);
-      lambda[m] = H._(m, m);
+      const hmm = H._(m, m);
+      if (!lambda.includes(hmm)) lambda.push(hmm);
       H = deflation(H);
     }
-    eigenvaluesWithoutShift(H).forEach((lam, i) => (lambda[i] = lam));
+    eigenvaluesWithoutShift(H).forEach((lam) => {
+      if (!lambda.includes(lam)) lambda.push(lam);
+    });
     return lambda;
   }
 
@@ -87,12 +93,16 @@ namespace MATH {
    * @param isEigenvalueAccurate then directly solve x = (A-lambda I)^-1
    * @returns
    */
-  export function eigenvectorOf(A: Matrix, eigenvalue: number): Vector {
+  export function eigenvectorOf(
+    A: Matrix,
+    eigenvalue: number,
+    approximateZeroBy = 1e-6
+  ): Vector {
     let x = Vector.ones(A.height);
     const shift = A.subtractNew(
       Matrix.identity(A.height).multiplyScalar(
-        eigenvalue !== 0 ? eigenvalue : 1e-6
-      ) // approximate 0 by small number near 0
+        eigenvalue < approximateZeroBy ? approximateZeroBy : eigenvalue
+      )
     );
     const shiftInv = shift.inverseNew() as Matrix;
     while (true) {
@@ -101,13 +111,13 @@ namespace MATH {
     }
   }
 
-  function eigenvaluesWithoutShift(A: Matrix): Float32Array {
-    const lambda = new Float32Array(A.height);
+  function eigenvaluesWithoutShift(A: Matrix): number[] {
+    const lambda = [];
     for (let i = 0; i < 70; i++) {
       const [Q, R] = qr(A);
       A = R.multiply(Q);
     }
-    for (let i = 0; i < A.height; i++) lambda[i] = A._(i, i);
+    for (let i = 0; i < A.height; i++) lambda.push(A._(i, i));
     return lambda;
   }
 

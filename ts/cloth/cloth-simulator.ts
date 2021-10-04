@@ -8,7 +8,13 @@
 
 namespace CLOTH_SIMULATOR {
   const gravityAccelaration = 9.8;
-  const timestep = 0.1;
+  const fixPointConstant = 1e4;
+
+  export enum Mode {
+    Newton,
+    ProjectiveDynamics,
+    Multigrid,
+  }
 
   type Spring = {
     originIndex: number;
@@ -22,6 +28,7 @@ namespace CLOTH_SIMULATOR {
    */
   export class Simulator {
     positions: MATH.Vector;
+    originalPositions: MATH.Vector;
     /** masses of positions */
     mass3: MATH.Vector;
     springs: Spring[] = [];
@@ -31,8 +38,9 @@ namespace CLOTH_SIMULATOR {
     velocities: MATH.Vector;
     /** whether position is fixed or not */
     isFixed: boolean[] = [];
+    timestep: number;
 
-    grids: Float32Array[];
+    multigrid: MULTIGRID.Multigrid;
 
     constructor(
       positions: number[],
@@ -45,14 +53,11 @@ namespace CLOTH_SIMULATOR {
       public airResistance = 1,
       public groundHeight = 0,
       public constantOfRestitution = 0.9,
-      public usesProjectiveDynamics = false
+      public mode = Mode.Newton
     ) {
-      const [grids, interpolatinos, restrictions] = MULTIGRID.build(
-        positions,
-        2
-      );
-      this.grids = grids;
+      this.multigrid = new MULTIGRID.Multigrid(positions, 1, 4);
       this.positions = new MATH.Vector(positions);
+      this.originalPositions = this.positions.clone();
       this.mass3 = MATH.Vector.zero(positions.length);
       this.velocities = MATH.Vector.zero(positions.length);
       for (let i = 0; i < positions.length; i++)
@@ -85,23 +90,47 @@ namespace CLOTH_SIMULATOR {
           this.springsConnectedTo[endpointIndex].push(springIndex);
         });
       }
+      switch (this.mode) {
+        case Mode.Multigrid:
+          this.timestep = 0.016;
+          break;
+        case Mode.Newton:
+        case Mode.ProjectiveDynamics:
+          this.timestep = 0.1;
+      }
     }
 
     simulate(): void {
       const previousPositions = this.positions.clone();
-      if (this.usesProjectiveDynamics) this.updateByProjectiveDynamics();
-      else
-        DESCENT_METHOD.updateByNewtonRaphson(
-          this.positions,
-          this.energy.bind(this),
-          this.gradient.bind(this),
-          this.hessian.bind(this),
-          true
-        );
-      this.unmoveFixedPoints(previousPositions);
+      switch (this.mode) {
+        case Mode.ProjectiveDynamics:
+          this.updateByProjectiveDynamics();
+          this.unmoveFixedPoints(previousPositions);
+          break;
+        case Mode.Newton:
+          DESCENT_METHOD.updateByNewtonRaphson(
+            this.positions,
+            this.energy.bind(this),
+            this.gradient.bind(this),
+            this.hessian.bind(this),
+            true
+          );
+          break;
+        case Mode.Multigrid:
+          DESCENT_METHOD.updateByNewtonMultigrid(
+            this.multigrid,
+            this.positions,
+            this.energy.bind(this),
+            this.gradient.bind(this),
+            this.hessian.bind(this),
+            this.velocities,
+            this.timestep
+          );
+          break;
+      }
       this.velocities = this.positions
         .subtractNew(previousPositions)
-        .multiplyScalar((1 / timestep) * (1 - this.airResistance));
+        .multiplyScalar((1 / this.timestep) * (1 - this.airResistance));
       this.handleCollisions();
     }
 
@@ -110,7 +139,7 @@ namespace CLOTH_SIMULATOR {
         positions,
         this.positions,
         this.velocities,
-        timestep,
+        this.timestep,
         this.mass3
       );
       const gravityEnergy = MATH.sigma(
@@ -128,7 +157,21 @@ namespace CLOTH_SIMULATOR {
           spring.springConstant
         );
       });
-      return kineticEergy + gravityEnergy + springEnergy;
+      const fixPointEnergy = MATH.sigma(
+        0,
+        this.positions.height / 3,
+        (positionIndex) =>
+          this.isFixed[positionIndex]
+            ? 0.5 *
+              fixPointConstant *
+              this.getPosition(positionIndex)
+                .subtractNew(
+                  this.getPosition(positionIndex, this.originalPositions)
+                )
+                .squaredNorm()
+            : 0
+      );
+      return kineticEergy + gravityEnergy + springEnergy + fixPointEnergy;
     }
 
     private getConnectedEndpointTo(
@@ -160,7 +203,7 @@ namespace CLOTH_SIMULATOR {
         positions,
         this.positions,
         this.velocities,
-        timestep,
+        this.timestep,
         this.mass3
       );
       for (
@@ -193,7 +236,17 @@ namespace CLOTH_SIMULATOR {
         for (let xyz = 0; xyz < 3; xyz++)
           gradient.set(positionIndex * 3 + xyz, totalGradient._(xyz));
       }
-      return gradient.add(kineticGradient);
+      const fixPointGradient = MATH.Vector.zero(this.positions.height);
+      for (let i = 0; i < fixPointGradient.height / 3; i++) {
+        if (this.isFixed[i]) {
+          const grad = this.getPosition(i)
+            .subtract(this.getPosition(i, this.originalPositions))
+            .multiplyScalar(fixPointConstant * 0.5);
+          for (let xyz = 0; xyz < 3; xyz++)
+            fixPointGradient.set(i * 3 + xyz, grad._(xyz));
+        }
+      }
+      return gradient.add(kineticGradient).add(fixPointGradient);
     }
 
     private handleCollisions(): void {
@@ -214,11 +267,28 @@ namespace CLOTH_SIMULATOR {
 
     private hessian(positions: MATH.Vector): MATH.Matrix {
       const kineticHessian = PHYSICS_KINETIC.hessianEnergyGain(
-        timestep,
+        this.timestep,
         this.mass3
       );
       const springHessian = this.getHessianOfSpringEnergy(positions);
-      return kineticHessian.add(springHessian);
+      const fixPointHessian = MATH.Matrix.zero(
+        this.positions.height,
+        this.positions.height
+      );
+      for (
+        let pointIndex = 0;
+        pointIndex < this.positions.height / 3;
+        pointIndex++
+      ) {
+        if (this.isFixed[pointIndex])
+          for (let row = 0; row < 3; row++)
+            fixPointHessian.set(
+              3 * pointIndex + row,
+              3 * pointIndex + row,
+              fixPointConstant
+            );
+      }
+      return kineticHessian.add(springHessian).add(fixPointHessian);
     }
 
     private getHessianOfSpringEnergy(positions: MATH.Vector): MATH.Matrix {
@@ -302,7 +372,7 @@ namespace CLOTH_SIMULATOR {
       /** 3n x 3n matrix (mass matrix devided by timestep^2) */
       this.Mh2 = MATH.Matrix.zero(this.positions.height, this.positions.height);
       for (let i = 0; i < this.Mh2.height; i++)
-        this.Mh2.set(i, i, this.mass3._(i) / timestep / timestep);
+        this.Mh2.set(i, i, this.mass3._(i) / this.timestep / this.timestep);
       this.L = this.Mh2.clone();
       for (let spring of this.springs) {
         const k_i = spring.springConstant;
@@ -321,7 +391,7 @@ namespace CLOTH_SIMULATOR {
             .multiply(A_i.transpose())
             .multiply(A_i)
             .multiply(S_i)
-            .multiply(k_i)
+            .multiplyScalar(k_i)
         );
         this.kSAB.push(
           S_i.transpose()
@@ -362,7 +432,7 @@ namespace CLOTH_SIMULATOR {
         g.set(3 * i + 2, -gravityAccelaration * this.mass3._(3 * i));
       // update q to sn (= qn + hvn + h^2M^-1fext)
       const sn = this.positions
-        .add(this.velocities.multiplyScalarNew(timestep))
+        .add(this.velocities.multiplyScalarNew(this.timestep))
         .add(
           (this.Mh2.inverseNew() as MATH.Matrix).multiplyVector(
             g

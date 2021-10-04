@@ -251,10 +251,10 @@ namespace MATH {
     /**
      * print elemtns in console for debug
      */
-    toString(digit = 2): string {
+    toString(digit = 2, toFixed = 0): string {
       let string = "";
       this.forEach((i, j, el) => {
-        string += `${String(el).padStart(digit, " ")} `;
+        string += `${String(el.toFixed(toFixed)).padStart(digit, " ")} `;
         if (j === this.width - 1) string += "\n";
       });
       return string;

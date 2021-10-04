@@ -8,7 +8,7 @@ namespace MATH {
    * @param tolerance round float to this digit
    */
   export function expectElementsEqualTo(
-    elements: Float32Array,
+    elements: Float32Array | number[],
     to: number[] | Float32Array,
     tolerance = 2
   ): void {

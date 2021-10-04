@@ -1,4 +1,6 @@
+/// <reference path="../math/math.ts" />
 /// <reference path="line-search.ts" />
+/// <reference path="multigrid.ts" />
 
 /**
  * x1 = x0 + a * D * pk
@@ -60,6 +62,42 @@ namespace DESCENT_METHOD {
   }
 
   /**
+   * update x by x + stepsize * H^-1 (- grad f)
+   *  so that x converges to local minimum of fx
+   * @param x
+   * @param fx
+   * @param gradFx
+   * @param hessianOfFx
+   * @param simulatesInertia x osciliates around local minumum until convergence as if it has inertia
+   * @param triesOrthogonalDirections saddle point guard (set non-zero value ONLY IF x converges to saddle point)
+   * @returns
+   */
+  export function updateByNewtonMultigrid(
+    multigrid: MULTIGRID.Multigrid,
+    x: MATH.Vector,
+    fx: (x: MATH.Vector) => number,
+    gradFx: (x: MATH.Vector) => MATH.Vector,
+    hessianOfFx: (x: MATH.Vector) => MATH.Matrix,
+    velocity: MATH.Vector,
+    timestep: number
+  ): void {
+    x.add(velocity.multiplyScalarNew(timestep));
+    const H = hessianOfFx(x);
+    let grad = gradFx(x).multiplyScalar(-1);
+    const dx = multigrid.solveBy2LevelMethot(H, x, grad, 30);
+    const stepsize =
+      0.001 ??
+      LINE_SEARCH.findStepsizeByBacktracking(
+        (stepsize) => fx(x.addNew(dx.multiplyScalarNew(stepsize))),
+        10,
+        undefined,
+        0.7,
+        150
+      );
+    x.add(dx.multiplyScalar(stepsize));
+  }
+
+  /**
    * x1 = x0 + a * H^'1 * (-grad f(x0))
    *  H is hessian of f(x) at x = x0
    * @param x current positions in 3d space
@@ -101,7 +139,7 @@ namespace DESCENT_METHOD {
     if (norm * stepsize < tolerance) return;
     x.forEach((x_i, i) => {
       if (!isFixed(i))
-        x_i.add(descentDirectionPerPosition[i].multiply(stepsize));
+        x_i.add(descentDirectionPerPosition[i].multiplyScalar(stepsize));
     });
   }
 

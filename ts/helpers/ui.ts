@@ -33,10 +33,13 @@ namespace UI {
     label: string,
     value: T,
     onchange: (newValue: string) => void,
-    type: "number" | "text",
-    min?: number,
-    max?: number,
-    step?: number
+    type: "number" | "text" | "radio",
+    options: {
+      min?: number;
+      max?: number;
+      step?: number;
+      name?: string;
+    } = {}
   ): HTMLInputElement {
     const span = document.createElement("span");
     span.className = "input-label";
@@ -44,10 +47,11 @@ namespace UI {
     app.append(span);
     const input = document.createElement("input");
     input.type = type;
-    input.min = String(min);
-    input.max = String(max);
+    input.min = String(options.min);
+    input.max = String(options.max);
     input.value = String(value);
-    input.step = String(step);
+    input.step = String(options.step);
+    input.name = options.name ?? "";
     input.addEventListener("change", () => {
       onchange(input.value);
     });
@@ -67,10 +71,21 @@ namespace UI {
       value,
       (newValue) => onchange(Number(newValue)),
       "number",
-      min,
-      max,
-      step
+      {
+        min,
+        max,
+        step,
+      }
     );
+  }
+  export function addInputRadio(
+    radios: { label: string; value: number }[],
+    onchange: (newValue: string) => void
+  ): void {
+    const name = radios.map((r) => r.label).reduce((l1, l2) => l1 + l2);
+    radios.forEach((radio) => {
+      addInput(radio.label, radio.value, onchange, "radio", { name });
+    });
   }
   export function addInputText(
     label: string,

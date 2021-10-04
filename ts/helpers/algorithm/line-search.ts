@@ -105,18 +105,31 @@ namespace LINE_SEARCH {
     }
   }
 
+  /**
+   *
+   * @param f
+   * @param stepsize  initial guess
+   * @param tolerance
+   * @param step
+   * @param maxiteration
+   * @returns
+   */
   export function findStepsizeByBacktracking(
     f: ObjectiveFunction,
-    initialStepsize: number,
+    stepsize: number,
     tolerance = 1e-3,
-    step = 0.5
+    step = 0.5,
+    maxiteration = Infinity
   ) {
     const f0 = f(0);
-    while (true) {
-      const fAtStepsize = f(initialStepsize);
-      if (fAtStepsize - f0 < tolerance) return initialStepsize;
-      initialStepsize *= step;
+    let iteration = 0;
+    while (iteration < maxiteration) {
+      const fAtStepsize = f(stepsize);
+      if (fAtStepsize < f0 && Math.abs(fAtStepsize - f0) > tolerance) break;
+      stepsize *= step;
+      iteration++;
     }
+    return stepsize;
   }
 
   /**

@@ -19,39 +19,57 @@ namespace MULTIGRID {
       }
     }
 
-    const [grids, U, Ut, r, M, m] = MULTIGRID.build(positions, 2);
+    const multigrid = new MULTIGRID.Multigrid(positions, 2, 2);
     test("grids", () => {
       [MATH.range(size * size), [0, 8, 2, 6, 4]].forEach((grid, i) =>
-        MATH.expectElementsEqualTo(grids[i], grid)
+        MATH.expectElementsEqualTo(multigrid.grids[i], grid)
       );
     });
     test("interpolations", () => {
-      r[1] = new MATH.Vector(
-        MATH.range(r[1].height / 12)
+      multigrid.residuals[1] = new MATH.Vector(
+        MATH.range(multigrid.residuals[1].height / 12)
           .map((i) => MATH.range(12).map((n) => n + i))
           .flat()
       );
-      const [r0_original, r1_original, r2_original] = [
-        r[0].clone(),
-        r[1].clone(),
-        r[2].clone(),
-      ];
-      const r0_true = U[0].multiplyVector(r[1]);
-      MULTIGRID.interpolate(r, M, 1);
-      MATH.expectElementsEqualTo(r0_true.elements, r[0].elements);
-      const r1_true = U[1].multiplyVector(r[2]);
-      MULTIGRID.interpolate(r, M, 2);
-      MATH.expectElementsEqualTo(r1_true.elements, r[1].elements);
+      const originals = multigrid.residuals.map((r) => r.clone());
+      const r0_true = multigrid.interpolations[0]
+        .multiplyVector(multigrid.residuals[1])
+        .add(multigrid.residuals[0]);
+      multigrid.interpolate(1, multigrid.residuals[1], multigrid.residuals[0]);
+      MATH.expectElementsEqualTo(
+        r0_true.elements,
+        multigrid.residuals[0].elements
+      );
+      const r1_true = multigrid.interpolations[1]
+        .multiplyVector(multigrid.residuals[2])
+        .add(multigrid.residuals[1]);
+      multigrid.interpolate(2, multigrid.residuals[2], multigrid.residuals[1]);
+      MATH.expectElementsEqualTo(
+        r1_true.elements,
+        multigrid.residuals[1].elements
+      );
       // restore original state
-      [r[0], r[1], r[2]] = [r0_original, r1_original, r2_original];
+      multigrid.residuals.forEach(
+        (r, i) => (r.elements = originals[i].elements)
+      );
     });
     test("restrictions", () => {
-      const r1_true = Ut[0].multiplyVector(r[0]);
-      MULTIGRID.restrict(r, m, 1);
-      MATH.expectElementsEqualTo(r1_true.elements, r[1].elements);
-      const r2_true = Ut[1].multiplyVector(r[1]);
-      MULTIGRID.restrict(r, m, 2);
-      MATH.expectElementsEqualTo(r2_true.elements, r[2].elements);
+      const r1_true = multigrid.restrictions[0].multiplyVector(
+        multigrid.residuals[0]
+      );
+      multigrid.restrict(1);
+      MATH.expectElementsEqualTo(
+        r1_true.elements,
+        multigrid.residuals[1].elements
+      );
+      const r2_true = multigrid.restrictions[1].multiplyVector(
+        multigrid.residuals[1]
+      );
+      multigrid.restrict(2);
+      MATH.expectElementsEqualTo(
+        r2_true.elements,
+        multigrid.residuals[2].elements
+      );
     });
   });
 }

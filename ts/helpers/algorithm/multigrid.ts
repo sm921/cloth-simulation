@@ -55,37 +55,272 @@
  * ```
  */
 namespace MULTIGRID {
-  export function build(
-    points: number[] | Float32Array,
-    depth: number
-  ): [
-    Float32Array[],
-    MATH.Matrix[],
-    MATH.Matrix[],
-    MATH.Vector[],
-    Float32Array[],
-    number[][][]
-  ] {
-    const positions = pointsToVectors(points);
-    const grids = buildGrids(positions, depth);
-    const residuals = buildResiduals(grids, points);
+  export class Multigrid {
+    blockSize = 12;
+    /** indices of positions */
+    grids: Float32Array[];
+    /** residuals, r0, r1, ..., rn */
+    residuals: MATH.Vector[];
+    /** system matrices A0, A1, ..., An */
+    A!: MATH.Matrix[];
 
-    const interpolationMaps = interpolationMappings(positions, grids);
-    const restrictionMaps = restrictionMappings(interpolationMaps, grids);
+    /** U0, U1, ..., Un */
+    interpolations: MATH.Matrix[];
+    /** U0^t, U1^t, ..., Un^t */
+    restrictions: MATH.Matrix[];
 
-    const interpolatinoMats = interpolationMatrices(positions, grids);
-    const restrictionMats = restrictionMatrices(interpolatinoMats);
+    /** use this instead of multiplying U0^t, U1^t, ..., Un^t for fast update */
+    restrictionMappings: number[][][];
+    /** use this instead of multiplying U0, U1, ..., Un for fast update */
+    interpolationMappings: Float32Array[];
 
-    return [
-      grids,
-      interpolatinoMats,
-      restrictionMats,
-      residuals,
-      interpolationMaps,
-      restrictionMaps,
-    ];
+    constructor(points: number[] | Float32Array, depth: number, gridRatio = 4) {
+      const positions = pointsToVectors(points);
+      this.grids = buildGrids(positions, depth, gridRatio);
+      this.residuals = buildResiduals(this.grids, points);
+      this.interpolationMappings = interpolationMappings(positions, this.grids);
+      this.restrictionMappings = restrictionMappings(
+        this.interpolationMappings,
+        this.grids
+      );
+      this.interpolations = interpolationMatrices(positions, this.grids);
+      this.restrictions = restrictionMatrices(this.interpolations);
+      this.initiSystemMatrices();
+      this.initRegularizations(positions);
+    }
+
+    initiSystemMatrices(): void {
+      this.A = Array(this.grids.length);
+      this.residuals.forEach((residual, i) => {
+        this.A[i] = MATH.Matrix.zero(residual.height, residual.height);
+      });
+    }
+
+    /**
+     * interpolate residual from coarse to fine using interpolation mapping.
+     * interpolation is r[i] = (x[i]^t, 1) * I r1[M1[i]] and r_k-1[i] = I r_k[Mk[i]] for k=2,3,...,n
+     */
+    interpolate(
+      coarseLevel: number,
+      e_coarse: MATH.Vector,
+      e_fine: MATH.Vector
+    ): void {
+      const blockWidth = 12;
+      const blockHeigt = coarseLevel === 1 ? 3 : blockWidth;
+      const I3 = MATH.Matrix.identity(3);
+      for (let i = 0; i < e_fine.height / blockHeigt; i++) {
+        const ithBlockOfCoarseResidual = getIthBlockOfVector(
+          this.interpolationMappings[coarseLevel - 1][i],
+          e_coarse,
+          blockWidth
+        );
+        setIthBlockOfVector(
+          i,
+          e_fine,
+          coarseLevel === 1
+            ? new MATH.Vector([
+                e_fine._(3 * i),
+                e_fine._(3 * i + 1),
+                e_fine._(3 * i + 2),
+                1,
+              ])
+                .transpose()
+                .kroneckerProduct(I3)
+                .multiplyVector(ithBlockOfCoarseResidual)
+            : ithBlockOfCoarseResidual,
+          true
+        );
+      }
+    }
+
+    /**
+     * restrict a residual and b vector, using restrictions mapping
+     * r = Ax-b, r1 = U1^t r, ..., rn = Un^t r_n-1
+     *  r1[i] = Sigma_j Rj
+     *    for j of mk[1]
+     *    and Rj = (r0_j^t, 1)^t * I3 * r0_j is 12x3 block matrix of U1^t
+     *      here, r0_j is r0's j-th block vector (3x1)
+     *  rk[i] = Sigma_j r_k-1[j]
+     *    for j of mk[i]
+     *    and r_k-1[j] 12x3 block matrix of Uk^t
+     *  restrict b in the same manner as r
+     */
+    restrict(coarseLevel: number): void {
+      const [r_coarse, r_fine] = [
+        this.residuals[coarseLevel],
+        this.residuals[coarseLevel - 1],
+      ];
+      const blockHeight = 12;
+      const mk = this.restrictionMappings[coarseLevel - 1];
+      for (let i = 0; i < r_coarse.height / blockHeight; i++) {
+        let sigma = MATH.Vector.zero(blockHeight);
+        for (const j of mk[i]) {
+          if (coarseLevel === 1) {
+            const rj = getIthBlockOfVector(j, r_fine, 3);
+            sigma.add(
+              new MATH.Vector([rj._(0), rj._(1), rj._(2), 1])
+                .kroneckerProduct(MATH.Matrix.identity(3))
+                .multiplyVector(rj)
+            );
+          } else sigma.add(getIthBlockOfVector(j, r_fine, blockHeight));
+        }
+        setIthBlockOfVector(
+          i,
+          r_coarse,
+          sigma.multiplyScalar(1 / mk[i].length)
+        );
+      }
+    }
+
+    /**
+     * solve Ax = b
+     * ```
+     * ### Algorithm: n-grid V-cycle to solve Ax = b
+     * 0. (initial guess) set x1 based (e.g. x1 = x0 + hv0 is guess by current position with inertia)
+     * 1. (smooth) Ax1 = b
+     * 2. r = Ax1-b
+     * 3. (restrict)r1 = Ur
+     * 4. (smooth) A1 e1 = r1 (e1 is initialized with zeros or ones)
+     *  repeat 3 and 4 until it reaches to the coarsest level
+     * 5. (solve) An en = rn
+     * 6. (interpolate) e_n-1 += U^t en
+     * 7. (smooth) A e_n-1 = r_n-1
+     *  repeat 6 and 7 until it reaches to the finest level
+     * 8. x = x1 + e1
+     * 9. (smooth) Ax1 = b
+     * 10. return x1
+     * ```
+     * @param A
+     * @param x0 initial guess of x
+     * @param b
+     * @param  smoothCount how many iterations to run per smooth
+     */
+    solveBy2LevelMethot(
+      A: MATH.Matrix,
+      x: MATH.Vector,
+      b: MATH.Vector,
+      smoothCount = 5
+    ): MATH.Vector {
+      const x1 = x.clone();
+      this.updateSystemMatrix(A, x1);
+      this.regularize();
+      x1.elements = MATH.Solver.jacobi(
+        this.A[0],
+        x1,
+        b,
+        smoothCount,
+        undefined
+      ).elements;
+      const _b = block(A, 5, 5, 12, 12);
+      const r0 = b.subtractNew(A.multiplyVector(x1));
+      const r1 = this.restrictions[0].multiplyVector(r0);
+      const e1 = this.A[1].inverseNew()?.multiplyVector(r1) as MATH.Vector;
+      const e0 = this.interpolations[0].multiplyVector(e1);
+      // const e1 = new MATH.Vector(
+      //   MATH.Solver.cholesky(
+      //     MATH.hessianModification(this.systemMatrices[1]),
+      //     this.restrictions[0].multiplyVector(r0).elements
+      //   ) as Float32Array
+      // );
+      x1.add(e0);
+      x1.elements = MATH.Solver.jacobi(
+        A,
+        x1,
+        b,
+        smoothCount,
+        undefined
+      ).elements;
+      const dx = x1.subtract(x);
+      return dx;
+    }
+
+    /**
+     * update a system matrix of a coarse level
+     * @param A
+     * @param x
+     */
+    private updateSystemMatrix(A: MATH.Matrix, x: MATH.Vector): void {
+      this.A[0] = MATH.hessianModification(A);
+      /*
+      updating (i,j)-th block of system matrix of a fine level ends of with updating 12x12 (i1,j1)-th block of the syste mmatrix of a coarse level 
+      by (xi^t, 1)^t (xj^t, 1) * A_ij for the 1st level, and A_ij for others 
+        such that
+          i1 is argmin_k ||x_fine[i] - x_coarse[k]||
+          and j1 is argmin_k ||x_fine[j] - x_coarse[k]||
+      */
+      for (let level = 0; level < this.grids.length - 1; level++) {
+        this.A[level + 1] = this.restrictions[level]
+          .multiply(this.A[level])
+          .multiply(this.interpolations[level]);
+        // const [A_fine, A_coarse] = [
+        //   this.systemMatrices[level],
+        //   this.systemMatrices[level + 1],
+        // ];
+        // const restrictionMapping = this.restrictionMappings[level];
+        // const blockSize = 12;
+        // for (let i1 = 0; i1 < A_coarse.width / blockSize; i1++)
+        //   for (let j1 = 0; j1 < A_coarse.width / blockSize; j1++) {
+        // const sigma = MATH.Matrix.zero(blockSize, blockSize);
+        // for (const i of restrictionMapping[i1])
+        //   for (const j of restrictionMapping[j1]) {
+        //     if (level === 0) {
+        //       const [xi, xj] = [i, j].map((index) => {
+        //         const xyz = getIthBlockOfVector(index, x, 3);
+        //         return new MATH.Vector([xyz._(0), xyz._(1), xyz._(2), 1]);
+        //       });
+        //       sigma.add(
+        //         xi
+        //           .outerProduct(xj.transpose())
+        //           .kroneckerProduct(block(A_fine, i, j, 3, 3))
+        //       );
+        //     } else sigma.add(block(A_fine, i, j, blockSize, blockSize));
+        //   }
+      }
+    }
+
+    private initRegularizations(x: MATH.Vector[]): void {
+      const A1 = this.A[1];
+      const mappings = this.restrictionMappings[0];
+      for (let i1 = 0; i1 < A1.width / this.blockSize; i1++) {
+        const nb = mappings[i1].length;
+        const Ub = MATH.Matrix.zero(nb, 4);
+        let row = 0;
+        for (let i of mappings[i1]) {
+          for (let xyz = 0; xyz < 3; xyz++) Ub.set(row, xyz, x[i]._(xyz));
+          Ub.set(row, 3, 1);
+        }
+        const UbtUb = Ub.transpose().multiply(Ub);
+        const eigenvalues = MATH.eigenvalues(UbtUb);
+        for (const eigenvalue of eigenvalues) {
+          if (eigenvalue < 1e-6) {
+            const n = MATH.eigenvectorOf(UbtUb, eigenvalue, 1e-3);
+            const nntI3 = n
+              .outerProduct(n.transposeNew())
+              .kroneckerProduct(MATH.Matrix.identity(3));
+            this.regularizations.push({ index: i1, nntI3 });
+          }
+        }
+      }
+    }
+
+    /** regularize A1 to make it non-singular (see 4.4 in the paper for detail)*/
+    regularizations: {
+      /** n n^t * I3 (12x12 matrix) */
+      nntI3: MATH.Matrix;
+      /** add nntI3 to the i-th diagonal 12x12 block matrix of A1 */
+      index: number;
+    }[] = [];
+
+    private regularize(): void {
+      for (const regularization of this.regularizations)
+        addBlock(
+          regularization.nntI3,
+          this.A[1],
+          regularization.index,
+          regularization.index
+        );
+    }
   }
-
   /**
    * grids = [x, x1, x2, ..., xn]
    *  x is 3n by 1, x1 is 12k by　1, x2 is 12k2 by 1, ..., xn is 12kn by 12kn
@@ -101,7 +336,11 @@ namespace MULTIGRID {
    * ```
    * @returns coarse grid and points which are not included in grid
    */
-  function buildGrids(points: MATH.Vector[], depth: number): Float32Array[] {
+  function buildGrids(
+    points: MATH.Vector[],
+    depth: number,
+    gridRatio = 4
+  ): Float32Array[] {
     // init
     const grids: Float32Array[] = Array(depth);
     const pointsToAddIndices = MATH.range(points.length);
@@ -123,7 +362,7 @@ namespace MULTIGRID {
         );
       const gridSize = Math.max(
         2,
-        Math.ceil(points.length / Math.pow(2, level))
+        Math.ceil(points.length / Math.pow(gridRatio, level))
       );
       // 3. repeat until size is large enough
       while (grid.length < gridSize) {
@@ -158,6 +397,34 @@ namespace MULTIGRID {
   }
 
   /**
+   * add small matrix to large matrix to update small portion of whole matrix
+   * @param block
+   * @param to
+   * @param rowBlockIndex
+   * @param columnBlockIndex
+   */
+  function addBlock(
+    block: MATH.Matrix,
+    to: MATH.Matrix,
+    rowBlockIndex: number,
+    columnBlockIndex: number
+  ): void {
+    const [row0, column0] = [
+      block.height * rowBlockIndex,
+      block.width * columnBlockIndex,
+    ];
+    for (let row = 0; row < block.width; row++)
+      for (let column = 0; column < block.height; column++) {
+        const [rowIndex, columnIndex] = [row0 + row, column0 + column];
+        to.set(
+          rowIndex,
+          columnIndex,
+          to._(rowIndex, columnIndex) + block._(row, column)
+        );
+      }
+  }
+
+  /**
    * residuals  = [r, r1, r2, ..., rn]
    *  such that r= Ax-b, r1 = U^t r, r2 = U^t r1, ..., rn = U^t r_n-1
    */
@@ -189,47 +456,6 @@ namespace MULTIGRID {
         vector._(numberOfCoordinates * index + coordinate)
       )
     );
-  }
-
-  /**
-   * interpolate residual from coarse to fine using interpolation mapping.
-   * interpolation is r[i] = (x[i]^t, 1) * I r1[M1[i]] and r_k-1[i] = I r_k[Mk[i]] for k=2,3,...,n
-   * @param r
-   */
-  export function interpolate(
-    residuals: MATH.Vector[],
-    mappings: Float32Array[],
-    coarseLevel: number
-  ): void {
-    const [r_fine, r_coarse] = [
-      residuals[coarseLevel - 1],
-      residuals[coarseLevel],
-    ];
-    const blockWidth = 12;
-    const blockHeigt = coarseLevel === 1 ? 3 : blockWidth;
-    const I3 = MATH.Matrix.identity(3);
-    for (let i = 0; i < r_fine.height / blockHeigt; i++) {
-      const ithBlockOfCoarseResidual = getIthBlockOfVector(
-        mappings[coarseLevel - 1][i],
-        r_coarse,
-        blockWidth
-      );
-      setIthBlockOfVector(
-        i,
-        r_fine,
-        coarseLevel === 1
-          ? new MATH.Vector([
-              r_fine._(3 * i),
-              r_fine._(3 * i + 1),
-              r_fine._(3 * i + 2),
-              1,
-            ])
-              .transpose()
-              .kroneckerProduct(I3)
-              .multiplyVector(ithBlockOfCoarseResidual)
-          : ithBlockOfCoarseResidual
-      );
-    }
   }
 
   /**
@@ -331,46 +557,6 @@ namespace MULTIGRID {
       vectors[i] = new MATH.Vector([0, 1, 2].map((xyz) => points[3 * i + xyz]));
     return vectors;
   }
-
-  /**
-   * restrict a residual and b vector, using restrictions mapping
-   * r = Ax-b, r1 = U1^t r, ..., rn = Un^t r_n-1
-   *  r1[i] = Sigma_j Rj
-   *    for j of mk[1]
-   *    and Rj = (r0_j^t, 1)^t * I3 * r0_j is 12x3 block matrix of U1^t
-   *      here, r0_j is r0's j-th block vector (3x1)
-   *  rk[i] = Sigma_j r_k-1[j]
-   *    for j of mk[i]
-   *    and r_k-1[j] 12x3 block matrix of Uk^t
-   *  restrict b in the same manner as r
-   */
-  export function restrict(
-    residuals: MATH.Vector[],
-    mappings: number[][][],
-    coarseLevel: number
-  ): void {
-    const [r_coarse, r_fine] = [
-      residuals[coarseLevel],
-      residuals[coarseLevel - 1],
-    ];
-    const blockHeight = 12;
-    const mk = mappings[coarseLevel - 1];
-    for (let i = 0; i < r_coarse.height / blockHeight; i++) {
-      let sigma = MATH.Vector.zero(blockHeight);
-      for (const j of mk[i]) {
-        if (coarseLevel === 1) {
-          const rj = getIthBlockOfVector(j, r_fine, 3);
-          sigma.add(
-            new MATH.Vector([rj._(0), rj._(1), rj._(2), 1])
-              .kroneckerProduct(MATH.Matrix.identity(3))
-              .multiplyVector(rj)
-          );
-        } else sigma.add(getIthBlockOfVector(j, r_fine, blockHeight));
-      }
-      setIthBlockOfVector(i, r_coarse, sigma);
-    }
-  }
-
   /**
    *  restriction mappings = [m1, m2, ..., mn]
    *   mk is a map from index in a coarse grid to multiple indices in ther fine grid
@@ -407,9 +593,41 @@ namespace MULTIGRID {
   function setIthBlockOfVector(
     index: number,
     vector: MATH.Vector,
-    ithBlock: MATH.Vector
+    ithBlock: MATH.Vector,
+    isAddition = false
   ): void {
-    for (let i = 0; i < ithBlock.height; i++)
-      vector.set(index * ithBlock.height + i, ithBlock._(i));
+    for (let i = 0; i < ithBlock.height; i++) {
+      const globalIndex = index * ithBlock.height + i;
+      vector.set(
+        globalIndex,
+        (isAddition ? vector._(globalIndex) : 0) + ithBlock._(i)
+      );
+    }
+  }
+
+  /**
+   * get a block matrix of a whole matrix
+   * @param of a whole matrix
+   * @param iThBlockRow i-th block of rows
+   * @param jThBlockColumn j-th block of columns
+   * @param blockHeight
+   * @param blockWidth
+   */
+  function block(
+    of: MATH.Matrix,
+    iThBlockRow: number,
+    jThBlockColumn: number,
+    blockHeight: number,
+    blockWidth: number
+  ): MATH.Matrix {
+    const block = MATH.Matrix.zero(blockWidth, blockHeight);
+    for (let i = 0; i < blockHeight; i++)
+      for (let j = 0; j < blockWidth; j++)
+        block.set(
+          i,
+          j,
+          of._(blockHeight * iThBlockRow + i, blockWidth * jThBlockColumn + j)
+        );
+    return block;
   }
 }

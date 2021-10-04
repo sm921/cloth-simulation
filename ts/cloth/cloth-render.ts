@@ -19,7 +19,12 @@ namespace CLOTH_RENDER {
     const numberOfPoints = params.numberOfPoints ?? 5;
     const mass = params.mass ?? 0.01;
     const restlength = length / (numberOfPoints - 1);
-    const [positions, springs] = initPositions(length, length, restlength, 40);
+    const [positions, springs] = initPositions(
+      length,
+      length,
+      restlength,
+      params.mode === CLOTH_SIMULATOR.Mode.Multigrid ? true : false
+    );
     simulator = new CLOTH_SIMULATOR.Simulator(
       positions,
       (positionIndex) =>
@@ -42,7 +47,7 @@ namespace CLOTH_RENDER {
       50 / (length * length),
       groundHeight,
       params.constantOfRestitution ?? 0.1,
-      params.usesProjectiveDynamics ?? false
+      params.mode
     );
   }
 
@@ -50,7 +55,7 @@ namespace CLOTH_RENDER {
     width: number,
     height: number,
     restlength: number,
-    zPosition: number
+    isRandomHeight = false
   ): [number[], Vec2[]] {
     const positions: number[] = [];
     const springs: Vec2[] = [];
@@ -62,7 +67,7 @@ namespace CLOTH_RENDER {
       const x = widthIndex * restlength;
       for (let heightIndex = 0; heightIndex <= heightMaxIndex; heightIndex++) {
         const y = heightIndex * restlength;
-        positions.push(x, y, zPosition);
+        positions.push(x, y, isRandomHeight ? Math.random() * 40 : 40);
       }
     }
     const getPositionIndex = (
@@ -124,7 +129,9 @@ namespace CLOTH_RENDER {
           origin[0],
           origin[1],
           origin[2],
-          simulator.grids[2].includes(spring.originIndex) ? 0xff0000 : 0x0000ff
+          simulator.multigrid.grids[1].includes(spring.originIndex)
+            ? 0xff0000
+            : 0x0000ff
         )
       );
       balls.push(
@@ -132,7 +139,9 @@ namespace CLOTH_RENDER {
           end[0],
           end[1],
           end[2],
-          simulator.grids[2].includes(spring.endIndex) ? 0xff0000 : 0x0000ff
+          simulator.multigrid.grids[1].includes(spring.endIndex)
+            ? 0xff0000
+            : 0x0000ff
         )
       );
       lines.push(
@@ -181,6 +190,6 @@ namespace CLOTH_RENDER {
     restlength?: number;
     springConstant?: number;
     constantOfRestitution?: number;
-    usesProjectiveDynamics?: boolean;
+    mode?: CLOTH_SIMULATOR.Mode;
   }
 }
