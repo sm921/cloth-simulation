@@ -11,8 +11,8 @@ cloth:
 	make build n=cloth
 freefall:
 	make build n=freefall
-plot:
-	make build n=plot
+multigrid:
+	make build n=multigrid
 sdf:
 	make build n=sdf
 spring:

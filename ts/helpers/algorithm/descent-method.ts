@@ -75,26 +75,14 @@ namespace DESCENT_METHOD {
   export function updateByNewtonMultigrid(
     multigrid: MULTIGRID.Multigrid,
     x: MATH.Vector,
-    fx: (x: MATH.Vector) => number,
     gradFx: (x: MATH.Vector) => MATH.Vector,
     hessianOfFx: (x: MATH.Vector) => MATH.Matrix,
     velocity: MATH.Vector,
     timestep: number
   ): void {
-    x.add(velocity.multiplyScalarNew(timestep));
     const H = hessianOfFx(x);
-    let grad = gradFx(x).multiplyScalar(-1);
-    const dx = multigrid.solveBy2LevelMethot(H, x, grad, 30);
-    const stepsize =
-      0.001 ??
-      LINE_SEARCH.findStepsizeByBacktracking(
-        (stepsize) => fx(x.addNew(dx.multiplyScalarNew(stepsize))),
-        10,
-        undefined,
-        0.7,
-        150
-      );
-    x.add(dx.multiplyScalar(stepsize));
+    x.add(velocity.multiplyScalarNew(timestep));
+    multigrid.solveBy2LevelMethot(H, x, gradFx(x).multiplyScalarNew(-1));
   }
 
   /**

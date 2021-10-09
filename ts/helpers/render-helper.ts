@@ -1,5 +1,6 @@
 /// <reference path="ui.ts" />
 /// <reference path="../@types/three.d.ts" />
+/// <reference path="../@types/index.d.ts" />
 
 namespace RENDER_HELPER {
   let camera: THREE.PerspectiveCamera;

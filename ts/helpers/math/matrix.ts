@@ -312,7 +312,7 @@ namespace MATH {
       return this.width * rowIndex + columnIndex;
     }
 
-    private swapRowIAndJ(rowI: number, rowJ: number): void {
+    swapRowIAndJ(rowI: number, rowJ: number): void {
       for (let column = 0; column < this.width; column++) {
         const rowIIndex = this.getFlatArrayIndex(rowI, column);
         const rowJIndex = this.getFlatArrayIndex(rowJ, column);
@@ -341,7 +341,7 @@ namespace MATH {
      * @param rowJ
      * @param multipliedByA
      */
-    private subtractRowIByJMultipliedByA(
+    subtractRowIByJMultipliedByA(
       rowI: number,
       rowJ: number,
       multipliedByA: number

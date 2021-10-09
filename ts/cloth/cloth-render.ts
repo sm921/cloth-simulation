@@ -16,14 +16,14 @@ namespace CLOTH_RENDER {
 
   export function initSimulator(params: InitParams = {}) {
     const length = params.length ?? 80;
-    const numberOfPoints = params.numberOfPoints ?? 5;
+    const numberOfPoints = params.numberOfPoints ?? 10;
     const mass = params.mass ?? 0.01;
     const restlength = length / (numberOfPoints - 1);
     const [positions, springs] = initPositions(
       length,
       length,
-      restlength,
-      params.mode === CLOTH_SIMULATOR.Mode.Multigrid ? true : false
+      restlength
+      // params.mode === CLOTH_SIMULATOR.Mode.Multigrid ? true : false
     );
     simulator = new CLOTH_SIMULATOR.Simulator(
       positions,

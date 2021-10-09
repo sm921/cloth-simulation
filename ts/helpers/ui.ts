@@ -1,6 +1,6 @@
 namespace UI {
   let app: HTMLDivElement;
-  export let liElements: HTMLLIElement[] = [];
+  let liElements: HTMLLIElement[] = [];
 
   export function addBtn(
     label: string,
@@ -15,11 +15,18 @@ namespace UI {
     return btn;
   }
 
+  export function addDiv(props: { id?: string } = {}): HTMLDivElement {
+    const div = document.createElement("div");
+    div.id = props.id ?? "";
+    app.append(div);
+    return div;
+  }
+
   export function addLinebreak(): void {
     app.append(document.createElement("br"));
   }
 
-  export function addLiElements(numberOfLiElement: number): void {
+  export function addLiElements(numberOfLiElement: number): HTMLUListElement {
     const ul = document.createElement("ul");
     for (let i = 0; i < numberOfLiElement; i++) {
       const li = document.createElement("li");
@@ -27,6 +34,7 @@ namespace UI {
       ul.append(li);
     }
     app.append(ul);
+    return ul;
   }
 
   function addInput<T>(

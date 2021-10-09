@@ -34,51 +34,45 @@ namespace MATH {
 
   /**
    * lu decomposition
-   * @param matrix
-   * @returns [L, U] L is lower triangle matrix, U is upper
+   * @param A
+   * @returns [L, U, P] L is lower triangle matrix, U is upper
    */
-  export function lu(matrix: Matrix): [Matrix, Matrix] | [null, null] {
-    if (!matrix.isSquare()) return [null, null];
+  export function lu(A: Matrix): [Matrix, Matrix, Matrix | null] {
     /*
-      Algorithm https://learn.lboro.ac.uk/archive/olmp/olmp_resources/pages/workbooks_1_50_jan2008/Workbook30/30_3_lu_decmp.pdf
-      find LU = A (nxn matrix), P = 0 (zero vector of n dimension)
-        calculate row by row 
-            find L and U of row i
-                1. find L(i,j) (1 <= j < i)
-                    L(i,j) = 1/U(j,j) * { A(i,j) - Sigma_k (L(i,k) * U(k,i-1)) }     (sigma's k is in [1,j-2] )
-                and L(i,i) = 1
-                2. find U(i,j) (i <= j <= n)
-                        U(i,j) = A(i,j) - Sigma_k (L(i,k) * U(k,j)) (sigma's k is in [1,i-1])
-                        if i = j and U(i,j) = 0 then return null
+    ```
+      Algorithm: PLU decomposition https://johnfoster.pge.utexas.edu/numerical-methods-book/LinearAlgebra_LU.html
+      1. Initialize L=P=I dimension nxn and U=A
+      2. For i=0, ..., n do Steps 3-4, 8
+      3.	   Let k=i,
+      4.	   While u_ii = 0, do Steps 5-7
+      5.	   Swap row Ui with row U_k+1
+      6.	   Swap row Pi with row P_k+1
+      7.	   Increment k by 1.
+      8.	   For j=i+1, ..., n do Steps 9-10
+      9.	   Set l_ji = u_ji/u_ii
+      10.	   Perform Uj = Uj - l_ji Ui (where Ui, Uj represent the i and j rows of the matrix U, respectively)
+    ```
       */
-    const [L, U] = [
-      Matrix.zero(matrix.height, matrix.width),
-      Matrix.zero(matrix.height, matrix.width),
+    const n = A.height;
+    let [L, U, P]: [Matrix, Matrix, Matrix | null] = [
+      Matrix.identity(n),
+      A.clone(),
+      null,
     ];
-    // find L(i,j) and U(i,j) row by row
-    for (let row = 0; row < matrix.height; row++) {
-      // find L(i,j)
-      for (let column = 0; column < row; column++) {
-        let sigma = 0;
-        for (let k = 0; k < column; k++) sigma += L._(row, k) * U._(k, row - 1);
-        L.set(
-          row,
-          column,
-          (matrix._(row, column) - sigma) / U._(column, column)
-        );
+    for (let i = 0; i < n; i++) {
+      let k = i;
+      while (U._(i, i) === 0) {
+        if (P === null) P = Matrix.identity(n);
+        U.swapRowIAndJ(i, k + 1);
+        P?.swapRowIAndJ(i, k + 1);
+        k++;
       }
-      // L(i,i)=1
-      L.set(row, row, 1);
-      // find U(i,j)
-      for (let column = row; column < matrix.width; column++) {
-        let sigma = 0;
-        for (let k = 0; k < row; k++) sigma += L._(row, k) * U._(k, column);
-        const u = matrix._(row, column) - sigma;
-        U.set(row, column, u);
-        if (row === column && u === 0) return [null, null];
+      for (let j = i + 1; j < n; j++) {
+        L.set(j, i, U._(j, i) / U._(i, i));
+        U.subtractRowIByJMultipliedByA(j, i, L._(j, i));
       }
     }
-    return [L, U];
+    return [L, U, P];
   }
 
   /**

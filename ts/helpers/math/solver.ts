@@ -67,6 +67,7 @@ namespace MATH {
       iterationCount?: number,
       tolerance = 1e-3
     ): Vector {
+      if (iterationCount === 0) return x;
       let k = 0;
       while (true) {
         for (let i = 0; i < A.height; i++) {
@@ -105,6 +106,7 @@ namespace MATH {
       iterationCount?: number,
       tolerance = 1e-3
     ): Vector {
+      if (iterationCount === 0) return x;
       let k = 0;
       while (true) {
         const x_new = x.clone();
@@ -115,7 +117,7 @@ namespace MATH {
             if (j !== i) sigma += A._(i, j) * x._(j);
           x_new.set(i, (b._(i) - sigma) / A._(i, i));
         }
-        x = x_new;
+        x.elements = x_new.elements;
         k++;
         if (iterationCount === undefined) {
           if (A.multiplyVector(x).subtractNew(b).squaredNorm() < tolerance)
@@ -133,10 +135,11 @@ namespace MATH {
      */
     static lu(
       A: Matrix,
-      b: Float32Array | number[],
+      b: Vector,
       L?: Matrix,
-      U?: Matrix
-    ): Float32Array | null {
+      U?: Matrix,
+      P: Matrix | null = null
+    ): Vector {
       /*
       Algorithm
         Ax = b
@@ -150,26 +153,23 @@ namespace MATH {
             since U is upper triangle matrix
               x(i) = (y(i) - Sigma_k (U(i,k)*x(k))) / U(i,i) (i<k<=n)
       */
-      if (L === undefined || U === undefined) {
-        const [_L, _U] = lu(A);
-        if (_L === null || _U === null) return null;
-        [L, U] = [_L, _U];
-      }
+      if (L === undefined || U === undefined) [L, U, P] = lu(A);
+      if (P) b = P.multiplyVector(b);
       // solve Ly = b
       const y = new Float32Array(L.height);
       for (let i = 0; i < y.length; i++) {
         if (L._(i, i) === 0) continue;
         let sigma = 0;
         for (let k = 0; k < i; k++) sigma += L._(i, k) * y[k];
-        y[i] = (b[i] - sigma) / L._(i, i);
+        y[i] = (b._(i) - sigma) / L._(i, i);
       }
       // slve Ux = y
-      const x = new Float32Array(U.height);
-      for (let i = x.length - 1; i >= 0; i--) {
+      const x = Vector.zero(U.height);
+      for (let i = x.height - 1; i >= 0; i--) {
         if (U._(i, i) === 0) continue;
         let sigma = 0;
-        for (let k = i + 1; k <= x.length - 1; k++) sigma += U._(i, k) * x[k];
-        x[i] = (y[i] - sigma) / U._(i, i);
+        for (let k = i + 1; k <= x.height - 1; k++) sigma += U._(i, k) * x._(k);
+        x.set(i, (y[i] - sigma) / U._(i, i));
       }
       return x;
     }

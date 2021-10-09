@@ -1,9 +1,9 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": {
-        "outFile": "../dist/plot.js"
+        "outFile": "../dist/multigrid.js"
     },
     "include": [
-        "../ts/plot/*.ts"
+        "../ts/multigrid/*.ts"
     ]
 }

@@ -231,9 +231,9 @@ namespace LINE_SEARCH {
     else {
       const abc = MATH.Solver.lu(
         new MATH.Matrix([2, 1, 0, p * p, p, 1, q * q, q, 1], 3, 3),
-        [dfdx_p, fp, fq]
-      ) as Float32Array;
-      const [a, b] = [abc[0], abc[1]];
+        new MATH.Vector([dfdx_p, fp, fq])
+      );
+      const [a, b] = [abc._(0), abc._(1)];
       return -b / (2 * a * a);
     }
   }

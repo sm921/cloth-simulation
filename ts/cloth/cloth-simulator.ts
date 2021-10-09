@@ -1,5 +1,4 @@
 /// <reference path="../helpers/math/math.ts" />
-/// <reference path="../helpers/math/math.ts" />
 /// <reference path="../helpers/algorithm/descent-method.ts" />
 /// <reference path="../helpers/algorithm/multigrid.ts" />
 /// <reference path="../@types/index.d.ts" />
@@ -55,7 +54,7 @@ namespace CLOTH_SIMULATOR {
       public constantOfRestitution = 0.9,
       public mode = Mode.Newton
     ) {
-      this.multigrid = new MULTIGRID.Multigrid(positions, 1, 4);
+      this.multigrid = new MULTIGRID.Multigrid(positions, 2, 6);
       this.positions = new MATH.Vector(positions);
       this.originalPositions = this.positions.clone();
       this.mass3 = MATH.Vector.zero(positions.length);
@@ -92,7 +91,7 @@ namespace CLOTH_SIMULATOR {
       }
       switch (this.mode) {
         case Mode.Multigrid:
-          this.timestep = 0.016;
+          this.timestep = 0.1;
           break;
         case Mode.Newton:
         case Mode.ProjectiveDynamics:
@@ -120,12 +119,12 @@ namespace CLOTH_SIMULATOR {
           DESCENT_METHOD.updateByNewtonMultigrid(
             this.multigrid,
             this.positions,
-            this.energy.bind(this),
             this.gradient.bind(this),
             this.hessian.bind(this),
             this.velocities,
             this.timestep
           );
+          this.unmoveFixedPoints(previousPositions);
           break;
       }
       this.velocities = this.positions

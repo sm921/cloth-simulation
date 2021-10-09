@@ -7,7 +7,7 @@
 namespace CLOTH_MAIN {
   let params: CLOTH_RENDER.InitParams = {
     springConstant: 1,
-    numberOfPoints: 5,
+    numberOfPoints: 10,
     length: 80,
     mass: 1e-2,
     fixedPoints: undefined,
@@ -38,15 +38,21 @@ namespace CLOTH_MAIN {
       (mode) => restartSimulator((params) => (params.mode = Number(mode)))
     );
     UI.addLinebreak();
-    UI.addInputNumber("spring constant = ", 0, 100, 1, 0.1, (springConstant) =>
-      restartSimulator((params) => (params.springConstant = springConstant))
+    UI.addInputNumber(
+      "spring constant = ",
+      0,
+      100,
+      params.springConstant ?? 1,
+      0.1,
+      (springConstant) =>
+        restartSimulator((params) => (params.springConstant = springConstant))
     );
     UI.addLinebreak();
     UI.addInputNumber(
       "number of endpoints = ",
       2,
       200,
-      5,
+      params.numberOfPoints ?? 10,
       1,
       (numberOfPoints) => {
         restartSimulator((params) => {
@@ -59,14 +65,14 @@ namespace CLOTH_MAIN {
       }
     );
     UI.addLinebreak();
-    UI.addInputNumber("length = ", 1, 500, 80, 1, (length) =>
+    UI.addInputNumber("length = ", 1, 500, params.length ?? 80, 1, (length) =>
       restartSimulator((params) => {
         params.length = length;
         params.restlength = length / (params?.numberOfPoints ?? 16);
       })
     );
     UI.addLinebreak();
-    UI.addInputNumber("mass = ", 0.01, 100, 0.01, 0.01, (mass) =>
+    UI.addInputNumber("mass = ", 0.01, 100, params.mass ?? 0.01, 0.01, (mass) =>
       restartSimulator((params) => (params.mass = mass))
     );
     UI.addLinebreak();
@@ -83,7 +89,7 @@ namespace CLOTH_MAIN {
       "constant of restitution =",
       0,
       1,
-      0.3,
+      params.constantOfRestitution ?? 0.3,
       0.1,
       (constantOfRestitution) =>
         restartSimulator(
