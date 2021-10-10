@@ -1,9 +1,4 @@
 {
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/multigrid.js"
-    },
-    "include": [
-        "../ts/multigrid/*.ts"
-    ]
+    "extends": "./tsconfig.json",
+    "include": ["../ts/multigrid/multigrid-main.ts"]
 }

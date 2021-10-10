@@ -1,9 +1,4 @@
 {
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/cloth.js"
-    },
-    "include": [
-        "../ts/cloth/*.ts"
-    ]
+    "extends": "./tsconfig.json",
+    "include": ["../ts/cloth/cloth-main.ts"]
 }

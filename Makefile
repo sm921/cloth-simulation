@@ -7,19 +7,20 @@ clean:
 ############## dev ##########
 build:
 	npx tsc -w -p configs/$(n).json
-cloth:
-	make build n=cloth
-freefall:
-	make build n=freefall
-multigrid:
-	make build n=multigrid
-sdf:
-	make build n=sdf
-spring:
-	make build n=spring
-
 test:
 	npx jest 
 testbuild:
 	npx tsc -w -p configs/test.json
 	
+_webpack:
+	npx webpack -w --config configs/$(n).js
+cloth:
+	make _webpack n=cloth
+freefall:
+	make _webpack n=free-fall
+multigrid:
+	make _webpack n=multigrid
+sdf:
+	make _webpack n=sdf
+spring:
+	make _webpack n=spring

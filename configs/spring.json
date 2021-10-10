@@ -1,9 +1,4 @@
 {
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/spring.js"
-    },
-    "include": [
-        "../ts/spring/*.ts"
-    ]
+    "extends": "./tsconfig.json",
+    "include": ["../ts/spring/spring-main.ts"]
 }

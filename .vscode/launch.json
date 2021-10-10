@@ -15,6 +15,12 @@
             "name": "browser",
             "request": "launch",
             "url": "http://localhost:5500/public/${relativeFileDirname}.html"
+        },
+        {
+            "type": "pwa-chrome",
+            "name": "browser2",
+            "request": "launch",
+            "url": "http://localhost:5500/ts/es/index.html"
         }
     ]
 }

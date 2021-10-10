@@ -1,6 +1,7 @@
-/// <reference path="../math/math.ts" />
+import { Matrix } from "../math/matrix";
+import { Vector } from "../math/vector";
 
-namespace PHYSICS_SPRING {
+export class Spring {
   /**
    * k/2 * (|qi-pi| - r)^2
    * @param point1
@@ -9,9 +10,9 @@ namespace PHYSICS_SPRING {
    * @param springConstant
    * @returns
    */
-  export function energy(
-    point1: MATH.Vector,
-    point2: MATH.Vector,
+  static energy(
+    point1: Vector,
+    point2: Vector,
     restlength: number,
     springConstant: number
   ): number {
@@ -27,12 +28,12 @@ namespace PHYSICS_SPRING {
    * @param springConstant
    * @returns
    */
-  export function energyGradient(
-    point1: MATH.Vector,
-    point2: MATH.Vector,
+  static energyGradient(
+    point1: Vector,
+    point2: Vector,
     restlength: number,
     springConstant: number
-  ): MATH.Vector {
+  ): Vector {
     const vectorFromP2ToP1 = point1.subtractNew(point2);
     return vectorFromP2ToP1.multiplyScalar(
       springConstant * (1 - restlength / vectorFromP2ToP1.norm())
@@ -47,13 +48,13 @@ namespace PHYSICS_SPRING {
    * @param springConstant
    * @returns
    */
-  export function energyHessian(
-    point1: MATH.Vector,
-    point2: MATH.Vector,
+  static energyHessian(
+    point1: Vector,
+    point2: Vector,
     restlength: number,
     springConstant: number
-  ): MATH.Matrix {
-    const identity = MATH.Matrix.identity(3);
+  ): Matrix {
+    const identity = Matrix.identity(3);
     const vectorFromP2ToP1 = point1.subtractNew(point2);
     const squaredNorm = vectorFromP2ToP1.squaredNorm();
     return identity

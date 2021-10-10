@@ -1,0 +1,4 @@
+{
+    "extends": "./tsconfig.json",
+    "include": ["../ts/free-fall/free-fall-main.ts"]
+}

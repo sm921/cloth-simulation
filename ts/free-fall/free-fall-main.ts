@@ -1,3 +1,3 @@
-/// <reference path="free-fall-render.ts" />
+import { render } from "./free-fall-render";
 
-FREE_FALL_RENDER.render();
+render();
