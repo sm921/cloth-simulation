@@ -1,3 +1,4 @@
+import { GPU } from "gpu.js";
 import { Matrix } from "./matrix";
 import { cholesky, lu } from "./matrix-decomposition";
 import { Vector } from "./vector";
@@ -130,6 +131,32 @@ export class Solver {
       } else if (k > iterationCount) break;
     }
     return x;
+  }
+
+  private static gpu = new GPU();
+  private static kernel__jacobi(
+    A: Matrix,
+    x: Vector,
+    b: Vector,
+    iterationCount?: number,
+    tolerance = 1e-3
+  ): void {
+    const x_new = x.clone();
+    const kernel = Solver.gpu.createKernel(
+      function (A: Float32Array, x: Float32Array) {
+        if (A[this.thread.x][this.thread.x] === 0) return x[this.thread.x];
+        let sigma = 0;
+      },
+      { output: [A.height] }
+    );
+    for (let i = 0; i < A.height; i++) {
+      if (A._(i, i) === 0) continue;
+      let sigma = 0;
+      for (let j = 0; j < A.width; j++)
+        if (j !== i) sigma += A._(i, j) * x._(j);
+      x_new.set(i, (b._(i) - sigma) / A._(i, i));
+    }
+    x.elements = x_new.elements;
   }
 
   /**

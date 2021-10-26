@@ -3,12 +3,11 @@ obj-name:
 	
 clean:
 	rm -r dist
+	rm configs/*.tsbuildinfo
 
 ############## dev ##########
-build:
-	npx tsc -w -p configs/$(n).json
 test:
-	npx jest 
+	npx jest $(n)
 testbuild:
 	npx tsc -w -p configs/test.json
 	

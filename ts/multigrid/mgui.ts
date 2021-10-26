@@ -2,7 +2,7 @@ const Plotly = require("plotly.js/dist/plotly.js");
 import { init, addLiElements, printTo, addDiv } from "../helpers/ui";
 
 export function initUI(): void {
-  init("Muligrid Example Problem");
+  init("Muligrid Example Problem$");
 }
 
 export function addDescription(

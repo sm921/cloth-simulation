@@ -1,4 +1,10 @@
-import { Matrix } from "./matrix";
+import {
+  letAddVec,
+  LetKernel,
+  letScaleVec,
+  letSubVec,
+} from "../gpgpu/gpgpuVec";
+import { ENABLES_GPU, Matrix } from "./matrix";
 
 /** (x,y) */
 export type Vec2 = [number, number];
@@ -6,6 +12,13 @@ export type Vec2 = [number, number];
 export type Vec3 = [number, number, number];
 /** (x,y,z,w) */
 export type Vec4 = [number, number, number, number];
+
+type Kernel<T> = (a: Vector, b: T) => Vector;
+interface Kernels {
+  add: { [n: number]: Kernel<Vector> };
+  subtract: { [n: number]: Kernel<Vector> };
+  scale: { [n: number]: Kernel<number> };
+}
 
 export class Vector extends Matrix {
   constructor(elements: Float32Array | number[]) {
@@ -21,7 +34,7 @@ export class Vector extends Matrix {
     return this;
   }
   override addNew(vec: Vector): Vector {
-    return super.addNew(vec) as Vector;
+    return this.useKernel((kernel) => kernel.add, vec, letAddVec, this.add);
   }
 
   override clone(): Vector {
@@ -68,10 +81,12 @@ export class Vector extends Matrix {
   }
 
   override multiplyScalarNew(scalar: number): Vector {
-    const product = this.clone();
-    for (let i = 0; i < this.elements.length; i++)
-      product.elements[i] *= scalar;
-    return product;
+    return this.useKernel(
+      (k) => k.scale,
+      scalar,
+      letScaleVec,
+      this.multiplyScalar
+    );
   }
 
   /** column vec x row vec */
@@ -103,7 +118,12 @@ export class Vector extends Matrix {
     return super.subtract(vec);
   }
   override subtractNew(vec: Vector): Vector {
-    return super.subtractNew(vec) as Vector;
+    return this.useKernel(
+      (kernel) => kernel.subtract,
+      vec,
+      letSubVec,
+      this.subtract
+    );
   }
 
   /**
@@ -152,5 +172,26 @@ export class Vector extends Matrix {
 
   static override zero(size: number): Vector {
     return new Vector(new Float32Array(size));
+  }
+
+  private kernel: Kernels = {
+    add: {},
+    subtract: {},
+    scale: {},
+  };
+
+  private useKernel<T>(
+    selectKernel: (kernel: Kernels) => { [n: number]: Kernel<T> },
+    b: T,
+    letKernel: LetKernel<T>,
+    onCpu: ((a: Vector, b: Vector) => Vector) | ((b: number) => Vector)
+  ): Vector {
+    const n = this.elements.length;
+    return !ENABLES_GPU || n < 1e2
+      ? onCpu.bind(this.clone())(b)
+      : (
+          selectKernel(this.kernel)[n] ??
+          (selectKernel(this.kernel)[n] = letKernel(n))
+        )(this, b);
   }
 }

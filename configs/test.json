@@ -1,7 +1,7 @@
 {
-    "extends": "./tsconfig.base.json",
-    "compilerOptions": {
-        "outFile": "../dist/test.js"
+    "extends": "./tsconfig.json",
+    "compilerOptions":{
+        "module": "commonjs"
     },
     "include": [
         "../ts/**/*.test.ts"

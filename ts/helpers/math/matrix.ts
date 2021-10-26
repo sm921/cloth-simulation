@@ -1,3 +1,21 @@
+export const ENABLES_GPU = false;
+import {
+  letAddMat,
+  LetKernel,
+  LetKernelMul,
+  letMulMat,
+  letScaleMat,
+  letSubMat,
+} from "../gpgpu/gpgpuMat";
+
+type Kernel<T> = (A: Matrix, B: T) => Matrix;
+interface Kernels {
+  add: { [n: string]: Kernel<Matrix> };
+  subtract: { [n: string]: Kernel<Matrix> };
+  scale: { [n: string]: Kernel<number> };
+  multiply: { [n: string]: Kernel<Matrix> };
+}
+
 export class Matrix {
   elements: Float32Array;
 
@@ -53,9 +71,8 @@ export class Matrix {
    * @param anotherMattrix
    * @returns
    */
-  addNew(anothterMatrix: Matrix): Matrix {
-    const newMatrix = this.clone();
-    return newMatrix.add(anothterMatrix);
+  addNew(B: Matrix): Matrix {
+    return this._useKernel((kernel) => kernel.add, B, letAddMat, this.add);
   }
 
   /**
@@ -128,19 +145,31 @@ export class Matrix {
    * @returns
    */
   multiply(by: Matrix): Matrix {
-    const product = new Matrix(
-      new Float32Array(by.width * this.height),
-      this.height,
-      by.width
-    );
-    for (let rowIndex = 0; rowIndex < product.height; rowIndex++) {
-      for (let columnIndex = 0; columnIndex < product.width; columnIndex++) {
-        for (let k = 0; k < this.width; k++)
-          product.elements[product.getFlatArrayIndex(rowIndex, columnIndex)] +=
-            this._(rowIndex, k) * by._(k, columnIndex);
+    return this._useKernel(
+      (kernel) => kernel.multiply,
+      by,
+      letMulMat,
+      () => {
+        const product = new Matrix(
+          new Float32Array(by.width * this.height),
+          this.height,
+          by.width
+        );
+        for (let rowIndex = 0; rowIndex < product.height; rowIndex++) {
+          for (
+            let columnIndex = 0;
+            columnIndex < product.width;
+            columnIndex++
+          ) {
+            for (let k = 0; k < this.width; k++)
+              product.elements[
+                product.getFlatArrayIndex(rowIndex, columnIndex)
+              ] += this._(rowIndex, k) * by._(k, columnIndex);
+          }
+        }
+        return product;
       }
-    }
-    return product;
+    );
   }
 
   multiplyScalar(scalar: number): this {
@@ -149,7 +178,12 @@ export class Matrix {
   }
 
   multiplyScalarNew(scalar: number): Matrix {
-    return this.clone().multiplyScalar(scalar);
+    return this._useKernel(
+      (kernel) => kernel.scale,
+      scalar,
+      letScaleMat,
+      this.multiplyScalar
+    );
   }
 
   multiplyVector<T extends Matrix>(
@@ -279,12 +313,16 @@ export class Matrix {
 
   /**
    * subtraction. not overide this elements and return new instance
-   * @param anotherMattrix
+   * @param B
    * @returns
    */
-  subtractNew(anotherMattrix: Matrix): Matrix {
-    const clone = this.clone();
-    return clone.subtract(anotherMattrix);
+  subtractNew(B: Matrix): Matrix {
+    return this._useKernel(
+      (kernel) => kernel.subtract,
+      B,
+      letSubMat,
+      this.subtract
+    );
   }
 
   /**
@@ -346,5 +384,32 @@ export class Matrix {
       this.elements[this.getFlatArrayIndex(rowI, column)] -=
         this.elements[this.getFlatArrayIndex(rowJ, column)] * multipliedByA;
     }
+  }
+
+  private _kernel: Kernels = {
+    add: {},
+    subtract: {},
+    scale: {},
+    multiply: {},
+  };
+
+  private _useKernel<T>(
+    selectKernel: (kernel: Kernels) => { [mxn: string]: Kernel<T> },
+    B: T,
+    letKernel: LetKernel<T> | LetKernelMul<T>,
+    onCpu: ((B: Matrix) => Matrix) | ((b: number) => Matrix)
+  ): Matrix {
+    const [height, width] = [this.height, this.width];
+    const mxn = `${height}x${width}`;
+    return !ENABLES_GPU || this.elements.length < 1e2
+      ? onCpu.bind(this.clone())(B)
+      : (
+          selectKernel(this._kernel)[mxn] ??
+          (selectKernel(this._kernel)[mxn] = letKernel(
+            height,
+            width,
+            B instanceof Matrix ? B.width : 0
+          ))
+        )(this, B);
   }
 }

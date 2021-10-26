@@ -1,4 +1,5 @@
 import { GPU } from "gpu.js";
+const { input } = require("gpu.js");
 import { Vec3, Vec4 } from "./math/vector";
 
 /** gpu instance with vector operations */
@@ -98,7 +99,7 @@ function testkernel() {
     }
   );
   const result = kernel(
-    GPU.input(
+    input(
       [
         //x=0
         [
