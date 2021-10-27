@@ -5,7 +5,7 @@
 JS による物理シミュレーションのポートフォリオです。
 以下の目的があります
 
-- 線形代数、微分方程式、最適化問題、反復法、その他の数理計算のためのアルゴリズムを０から実装できることを示します
+- 線形代数、微分方程式、最適化問題、反復法、その他の数値計算のためのアルゴリズムを０から実装できることを示します
   - [行列分解](https://github.com/sm921/cloth-simulation/blob/main/ts/helpers/math/matrix-decomposition.ts)
   - [行列変形](https://github.com/sm921/cloth-simulation/blob/main/ts/helpers/math/matrix-modification.ts)
   - [固有値、固有ベクトル](https://github.com/sm921/cloth-simulation/blob/main/ts/helpers/math/matrix-eigen.ts)
